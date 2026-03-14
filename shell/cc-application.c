@@ -218,8 +218,7 @@ cc_application_handle_local_options (GApplication *application,
 
   if (!is_supported_desktop ())
     {
-      g_printerr ("Running gnome-control-center is only supported under GNOME and Unity, exiting\n");
-      return 1;
+      g_printerr ("Running gnome-control-center is only supported under GNOME and Unity, ignoring check...\n");
     }
 
   if (g_variant_dict_contains (options, "list"))
