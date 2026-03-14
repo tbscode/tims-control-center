@@ -35,7 +35,12 @@
         hash = "sha256-Zb0FdcSye4H3XWIfut878YiSiUr8MioNbTE9SymtAjw=";
       };
       nativeBuildInputs = [ pkgs.meson pkgs.ninja pkgs.pkg-config pkgs.wayland-scanner ];
-      buildInputs = [ pkgs.glib pkgs.gtk4 pkgs.wayland ];
+      buildInputs = [ pkgs.glib pkgs.gtk4 pkgs.wayland pkgs.dbus ];
+      mesonFlags = [ "-Dtests=false" ]; # Skip tests that require dbus-run-session
+      
+      # We just need the built library, but it doesn't install anything by default when run stand-alone.
+      # Actually, libgxdp in this tree is meant to be built as a subproject statically.
+      # Meson will link it directly into gnome-control-center if we use it as a subproject.
     };
 
     my-gcc = (pkgs.gnome-control-center.override {
@@ -45,15 +50,21 @@
       patches = [];
       doCheck = false;
       
-      # The Nixpkgs package disables wrap downloads by default.
-      # Because we are injecting the dependencies below natively, we don't need wrap downloads anymore!
+      # Use the specific version of blueprint-compiler via nativeBuildInputs
+      # and remove wrap downloads which cannot work inside the Nix build sandbox
       mesonFlags = (old.mesonFlags or []) ++ [
         "-Dwrap_mode=nodownload"
       ];
 
+      # Remove blueprint.wrap since we provide it via nix
+      # Also remove other wrap files to force using the system's libraries provided by Nixpkgs
+      preConfigure = (old.preConfigure or "") + ''
+        rm -f subprojects/*.wrap
+      '';
+
       # Inject our updated subprojects
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ my-blueprint ];
-      buildInputs = (old.buildInputs or []) ++ [ my-libgxdp ];
+      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ my-blueprint pkgs.git ];
+      buildInputs = (old.buildInputs or []);
 
       postInstall = (old.postInstall or "") + ''
         # We need to make sure the app finds the schemas at runtime.
