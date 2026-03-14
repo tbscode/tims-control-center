@@ -61,6 +61,8 @@
         pkgs.tecla
         pkgs.krb5
         pkgs.samba
+        pkgs.ibus
+        pkgs.colord-gtk4
         my-schemas
       ];
 
