@@ -60,6 +60,10 @@
       mesonFlags = (old.mesonFlags or []) ++ [
         "-Dwrap_mode=nodownload"
       ];
+      
+      # GNOME Control Center is very heavy to build with -j16 inside the sandbox,
+      # limit jobs to prevent it from OOMing or hanging silently.
+      enableParallelBuilding = false;
 
       preConfigure = (old.preConfigure or "") + ''
         rm -f subprojects/blueprint.wrap
