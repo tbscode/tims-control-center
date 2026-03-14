@@ -34,7 +34,7 @@
         pkgs.libadwaita
         pkgs.gnome-settings-daemon
         pkgs.gnome-desktop
-        pkgs.goa
+        pkgs.gnome-online-accounts
         pkgs.libgtop
         pkgs.libsecret
         pkgs.polkit
