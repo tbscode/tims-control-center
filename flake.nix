@@ -68,7 +68,8 @@
       '';
 
       # Inject our updated subprojects
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ my-blueprint pkgs.git ];
+      # We put my-blueprint FIRST in nativeBuildInputs so it supersedes the older version from nixpkgs
+      nativeBuildInputs = [ my-blueprint ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
       buildInputs = (old.buildInputs or []);
 
       postInstall = (old.postInstall or "") + ''
