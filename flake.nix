@@ -7,27 +7,16 @@
 
   outputs = { self, nixpkgs }: let
     pkgs = import nixpkgs { system = "x86_64-linux"; };
-    
-    my-schemas = pkgs.gsettings-desktop-schemas.overrideAttrs (old: {
-      src = pkgs.fetchgit {
-        url = "https://gitlab.gnome.org/GNOME/gsettings-desktop-schemas.git";
-        rev = "79bc4ac873aee516b668bc2fb6e8aadf5eba4bb2";
-        hash = "sha256-gACQK2eRiayerJQgNZ2uAivAGs/ySwqlBi2pfkIp0x4=";
-      };
-      patches = []; # remove any old patches
-    });
-    
-    # We package the prebuilt binary and the necessary runtime dependencies
+
+    # Package prebuilt binaries and patch ELF dependencies.
     my-gcc = pkgs.stdenv.mkDerivation {
       pname = "gnome-control-center-prebuilt";
       version = "49.5-custom";
-      
+
       src = ./prebuilt;
-      
-      # We need to tell patchelf to set the correct rpath so the binary can find
-      # its shared libraries (which are usually provided by Nixpkgs at runtime)
+
       nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-      
+
       buildInputs = [
         pkgs.glib
         pkgs.gtk4
@@ -63,7 +52,6 @@
         pkgs.samba
         pkgs.ibus
         pkgs.colord-gtk4
-        my-schemas
       ];
 
       installPhase = ''
@@ -76,6 +64,8 @@
         # Create a wrapper script that simulates control_center.sh
         cat > $out/bin/control-center << 'EOF'
         #!/usr/bin/env bash
+
+        SCRIPT_DIR="$(cd "$(dirname "''${BASH_SOURCE[0]}")" && pwd)"
 
         # Check if gnome-control-center is already running
         if ${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' >/dev/null 2>&1; then
@@ -111,16 +101,22 @@
         ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
         ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
-        # Add the schemas that were required during the build to the data dirs
-        export XDG_DATA_DIRS="$out/share:${my-schemas}/share:$XDG_DATA_DIRS"
+        # Ensure bundled schemas/resources are available to GSettings and GTK.
+        export XDG_DATA_DIRS="$SCRIPT_DIR/../share:$XDG_DATA_DIRS"
 
-        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$out/bin/.gnome-control-center-wrapped" "$@"
+        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
         EOF
 
         chmod +x $out/bin/control-center
       '';
+
+      meta.mainProgram = "control-center";
     };
   in {
     packages.x86_64-linux.default = my-gcc;
+    apps.x86_64-linux.default = {
+      type = "app";
+      program = "${my-gcc}/bin/control-center";
+    };
   };
 }
