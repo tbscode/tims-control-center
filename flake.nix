@@ -60,7 +60,7 @@
         pkgs.libgudev
         pkgs.tecla
         pkgs.krb5
-        pkgs.smbclient
+        pkgs.samba
         my-schemas
       ];
 
