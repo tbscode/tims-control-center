@@ -52,6 +52,9 @@
         pkgs.samba
         pkgs.ibus
         pkgs.colord-gtk4
+        pkgs.gst_all_1.gstreamer
+        pkgs.gst_all_1.gst-plugins-base
+        pkgs.gst_all_1.gst-plugins-good
       ];
 
       installPhase = ''
@@ -103,32 +106,58 @@
         ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
         # Ensure bundled and system schemas/resources are available to GSettings and GTK.
-        export XDG_DATA_DIRS="$SCRIPT_DIR/../share:''${XDG_DATA_DIRS:-/run/current-system/sw/share:/etc/profiles/per-user/$USER/share:/nix/var/nix/profiles/default/share}"
+        data_dirs=()
+        schema_dirs=()
 
-        SCHEMA_MERGE_DIR="/tmp/tims-control-center-schemas-$UID"
-        mkdir -p "$SCHEMA_MERGE_DIR"
-
-        merge_schemas_from() {
-          local dir="$1"
-          if [ -d "$dir" ]; then
-            cp -f "$dir"/*.xml "$SCHEMA_MERGE_DIR" 2>/dev/null || true
-            cp -f "$dir"/*.gschema.override "$SCHEMA_MERGE_DIR" 2>/dev/null || true
+        add_schema_dir() {
+          local d="$1"
+          if [ -d "$d" ]; then
+            schema_dirs+=("$d")
           fi
         }
 
-        merge_schemas_from "$SCRIPT_DIR/../share/glib-2.0/schemas"
-        merge_schemas_from "/run/current-system/sw/share/glib-2.0/schemas"
-
-        for dir in /run/current-system/sw/share/gsettings-schemas/*/glib-2.0/schemas; do
-          merge_schemas_from "$dir"
+        for base in /run/current-system/sw /etc/profiles/per-user/$USER /nix/var/nix/profiles/default; do
+          if [ -d "$base/share" ]; then
+            data_dirs+=("$base/share")
+          fi
+          add_schema_dir "$base/share/glib-2.0/schemas"
+          for schema_root in "$base"/share/gsettings-schemas/*; do
+            if [ -d "$schema_root/glib-2.0/schemas" ]; then
+              data_dirs+=("$schema_root")
+              add_schema_dir "$schema_root/glib-2.0/schemas"
+            fi
+          done
         done
 
-        for dir in "/etc/profiles/per-user/$USER"/share/gsettings-schemas/*/glib-2.0/schemas; do
-          merge_schemas_from "$dir"
+        data_dirs+=("$SCRIPT_DIR/../share")
+        add_schema_dir "$SCRIPT_DIR/../share/glib-2.0/schemas"
+
+        joined_data_dirs=""
+        for d in "''${data_dirs[@]}"; do
+          if [ -z "$joined_data_dirs" ]; then
+            joined_data_dirs="$d"
+          else
+            joined_data_dirs="$joined_data_dirs:$d"
+          fi
+        done
+        export XDG_DATA_DIRS="$joined_data_dirs"
+
+        schema_merge_dir="/tmp/tims-control-center-schema-merge-$UID"
+        rm -rf "$schema_merge_dir"
+        mkdir -p "$schema_merge_dir"
+        for d in "''${schema_dirs[@]}"; do
+          cp -f "$d"/*.xml "$schema_merge_dir" 2>/dev/null || true
+          cp -f "$d"/*.gschema.override "$schema_merge_dir" 2>/dev/null || true
         done
 
-        ${pkgs.glib.bin}/bin/glib-compile-schemas "$SCHEMA_MERGE_DIR" >/dev/null 2>&1 || true
-        export GSETTINGS_SCHEMA_DIR="$SCHEMA_MERGE_DIR"
+        # Compatibility patch for custom control-center builds expecting this key.
+        if [ -f "$schema_merge_dir/org.gnome.desktop.session.gschema.xml" ] && ! ${pkgs.gnugrep}/bin/grep -q 'name="save-restore"' "$schema_merge_dir/org.gnome.desktop.session.gschema.xml"; then
+          ${pkgs.gnused}/bin/sed -i '/<\/schema>/i\  <key name="save-restore" type="b">\n    <default>true<\/default>\n    <summary>Restore session</summary>\n    <description>Whether to restore previous session state.<\/description>\n  <\/key>' "$schema_merge_dir/org.gnome.desktop.session.gschema.xml"
+        fi
+
+        ${pkgs.glib.dev}/bin/glib-compile-schemas "$schema_merge_dir" >/dev/null
+        export GSETTINGS_SCHEMA_DIR="$schema_merge_dir"
+        export GST_PLUGIN_SYSTEM_PATH="${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-good}/lib/gstreamer-1.0"
 
         exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
         EOF
