@@ -28,7 +28,7 @@ export XDG_SESSION_TYPE=wayland
 
 # Ensure SessionManager and GNOME settings-daemon plugins are available first.
 /nix/store/1vs3gbz4w3wrqs76z8iay5cidwrv2hy6-systemd-258.3/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
-/nix/store/48nhpn1dv5pn74018agdz7qrbiik2sd5-coreutils-9.8/bin/timeout 5 /nix/store/cclxs655gaq8jw8bzbbsn67pvhwzwrdb-glib-2.86.3-bin/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
+/nix/store/48nhpn1dv5pn74018agdz7qrbiik2sd5-coreutils-9.8/bin/timeout 0.5 /nix/store/cclxs655gaq8jw8bzbbsn67pvhwzwrdb-glib-2.86.3-bin/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
 
 # If gsd-rfkill started before SessionManager, it can stay half-initialized.
 # Kill stale instances so DBus activation starts a fresh one in the correct env.
@@ -41,7 +41,7 @@ export XDG_SESSION_TYPE=wayland
 /nix/store/cclxs655gaq8jw8bzbbsn67pvhwzwrdb-glib-2.86.3-bin/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
 
 # Wait briefly for DBus services that the Wi-Fi panel needs.
-/nix/store/48nhpn1dv5pn74018agdz7qrbiik2sd5-coreutils-9.8/bin/timeout 5 /nix/store/cclxs655gaq8jw8bzbbsn67pvhwzwrdb-glib-2.86.3-bin/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
+/nix/store/48nhpn1dv5pn74018agdz7qrbiik2sd5-coreutils-9.8/bin/timeout 0.5 /nix/store/cclxs655gaq8jw8bzbbsn67pvhwzwrdb-glib-2.86.3-bin/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
 # Launch Control Center with GNOME desktop identity for its startup check.
 # Keep this scoped to the process to avoid changing global session identity.
