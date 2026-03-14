@@ -17,9 +17,65 @@
       patches = []; # remove any old patches
     });
     
-    # Create an extremely minimal wrapper that just executes the existing build
-    # we did in the folder. The easiest path is often just wrapping what works!
-    my-gcc = pkgs.writeShellScriptBin "control-center" ''
+    my-blueprint = pkgs.blueprint-compiler.overrideAttrs (old: {
+      src = pkgs.fetchgit {
+        url = "https://gitlab.gnome.org/GNOME/blueprint-compiler.git";
+        rev = "c59e5bc4f7c6b76bb578eeb6d42c5d5416c1a078";
+        hash = "sha256-QkBSxgN7kydMxVouI0baBngkceYLfQFlrrOEp35BX1Q=";
+      };
+      version = "0.20.0";
+      # Need to ensure the version is correctly identified by meson
+      postPatch = (old.postPatch or "") + ''
+        sed -i "s/version: '0.18.0'/version: '0.20.0'/g" meson.build || true
+      '';
+    });
+
+    # Actually build the GNOME control center from the source in this repo!
+    my-gcc = (pkgs.gnome-control-center.override {
+      gsettings-desktop-schemas = my-schemas;
+    }).overrideAttrs (old: {
+      src = ./.;
+      patches = [];
+      doCheck = false;
+      
+      # Limit parallel build jobs to prevent OOM in sandbox
+      enableParallelBuilding = false;
+
+      mesonFlags = (old.mesonFlags or []) ++ [
+        "-Dwrap_mode=nodownload"
+      ];
+
+      # Remove all subprojects because Nix provides them, except gvc and libgxdp
+      preConfigure = (old.preConfigure or "") + ''
+        rm -f subprojects/blueprint.wrap
+        rm -f subprojects/libgxdp.wrap
+        rm -f subprojects/libadwaita.wrap
+        rm -f subprojects/gtk.wrap
+        rm -f subprojects/goa.wrap
+        rm -f subprojects/gsd.wrap
+        rm -f subprojects/malcontent.wrap
+        rm -f subprojects/tecla.wrap
+        
+        # When gsettings-desktop-schemas is provided externally, pkg-config has the prefix variable.
+        # So we just need to ensure the pkgconfig variable works by removing the bundled subproject.
+        rm -rf subprojects/gsettings-desktop-schemas
+        rm -f subprojects/gsettings-desktop-schemas.wrap
+      '';
+
+      nativeBuildInputs = [ my-blueprint pkgs.pkg-config ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
+      
+      # Make sure the project uses our updated gsettings schemas
+      buildInputs = (pkgs.lib.remove pkgs.gsettings-desktop-schemas (old.buildInputs or [])) ++ [ my-schemas pkgs.gtk4 pkgs.libadwaita ];
+      
+      # We need to make sure pkg-config finds our newer schemas
+      PKG_CONFIG_PATH = "${my-schemas}/share/pkgconfig:${pkgs.gtk4.dev}/lib/pkgconfig:${pkgs.libadwaita.dev}/lib/pkgconfig";
+
+      postInstall = (old.postInstall or "") + ''
+        # Backup the original binary
+        mv $out/bin/gnome-control-center $out/bin/.gnome-control-center-wrapped
+
+        # Create a wrapper script that simulates control_center.sh
+        cat > $out/bin/control-center << 'EOF'
         #!/usr/bin/env bash
 
         # Check if gnome-control-center is already running
@@ -56,15 +112,15 @@
         ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
         ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
-        # Define where the actual built version lives (we assume it's in the repo directory)
-        REPO_DIR="/home/tim/development/tims-control-center"
-        
-        # Inject the custom schemas 
-        export XDG_DATA_DIRS="$REPO_DIR/install/share:${my-schemas}/share:$XDG_DATA_DIRS"
+        # Add the schemas that were required during the build to the data dirs
+        export XDG_DATA_DIRS="$out/share:${my-schemas}/share:$XDG_DATA_DIRS"
 
-        # Launch the actual binary built locally
-        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$REPO_DIR/install/bin/gnome-control-center" "$@"
-    '';
+        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$out/bin/.gnome-control-center-wrapped" "$@"
+        EOF
+
+        chmod +x $out/bin/control-center
+      '';
+    });
   in {
     packages.x86_64-linux.default = my-gcc;
   };
