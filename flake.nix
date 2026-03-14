@@ -41,7 +41,7 @@
         pkgs.libpwquality
         pkgs.gcr
         pkgs.upower
-        pkgs.libpulse
+        pkgs.pulseaudio
         pkgs.colord
         pkgs.accountsservice
         pkgs.udisks2
