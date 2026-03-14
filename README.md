@@ -5,5 +5,7 @@ This is a fork that performs small modification to get the control center to wor
 Notably:
 
 - remove gnome / unity usage restriction
-- add nix flake ( includes build processs )
-- add i3 instegration / start-up script for usage
+- add i3 integration / startup script behavior for existing-window focus and faster startup waits
+- add Nix flake packaging for `control-center` command
+- ship prebuilt binaries in `prebuilt/` for flake packaging (x86_64-linux)
+- remove the `Multitasking`, `Wellbeing`, `Accessibility`, and `Online Accounts` sections from the panel list
