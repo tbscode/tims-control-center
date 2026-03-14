@@ -1,23 +1,4 @@
-TIM SETTINGS ( fork of gnome settings )
+TIM I3 SETTINGS ( fork of gnome settings )
 ====================
 
-GNOME Settings is GNOME's main interface for configuration of various aspects of your desktop.
-
-If you are looking for usage tips and instructions, you can find it at the [User Documentation](https://help.gnome.org/users/gnome-help/stable/prefs.html) (translated in various languages).
-
-## Reporting Issues
-
-Before reporting any bugs or opening feature requests, [read the communication guidelines](https://gitlab.gnome.org/GNOME/gnome-control-center/blob/main/docs/CODE_OF_CONDUCT.md#communication-guidelines).
-
-Report issues to the [GNOME issue tracking system](https://gitlab.gnome.org/GNOME/gnome-control-center/issues).
-
-## Feature Requests
-
-For feature requests or conceptual changes, please start a topic on [GNOME Discourse](https://discourse.gnome.org/tags/settings).
-
-## Contributing
-
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for details on the contribution process, and [`docs/CODING_STYLE.md`](docs/CODING_STYLE.md)
-for the coding style guidelines.
-
-See [docs/](docs/index.md) for our developer documentation.
+This is a fork that performs small modification to get the control center to work under i3.
