@@ -83,8 +83,14 @@
       # We put my-blueprint FIRST in nativeBuildInputs so it supersedes the older version from nixpkgs
       nativeBuildInputs = [ my-blueprint pkgs.pkg-config ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
       
+      # By stripping out all subprojects and keeping gvc + libgxdp local, we can compile perfectly
+      # using the nixpkgs dependencies for the rest
+      
+      # Make sure the project uses our updated gsettings schemas
+      buildInputs = (pkgs.lib.remove pkgs.gsettings-desktop-schemas (old.buildInputs or [])) ++ [ my-schemas pkgs.gtk4 pkgs.libadwaita ];
+      
       # We need to make sure pkg-config finds our newer schemas
-      PKG_CONFIG_PATH = "${my-schemas}/share/pkgconfig";
+      PKG_CONFIG_PATH = "${my-schemas}/share/pkgconfig:${pkgs.gtk4.dev}/lib/pkgconfig:${pkgs.libadwaita.dev}/lib/pkgconfig";
 
       postInstall = (old.postInstall or "") + ''
         # We need to make sure the app finds the schemas at runtime.
