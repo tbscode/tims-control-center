@@ -64,12 +64,12 @@
       # Remove blueprint.wrap since we provide it via nix
       # Also remove other wrap files to force using the system's libraries provided by Nixpkgs
       preConfigure = (old.preConfigure or "") + ''
-        rm -f subprojects/blueprint-compiler.wrap
+        rm -f subprojects/blueprint.wrap
         rm -f subprojects/libgxdp.wrap
         rm -f subprojects/libadwaita.wrap
         rm -f subprojects/gtk.wrap
-        rm -f subprojects/gnome-online-accounts.wrap
-        rm -f subprojects/gnome-settings-daemon.wrap
+        rm -f subprojects/goa.wrap
+        rm -f subprojects/gsd.wrap
         rm -f subprojects/malcontent.wrap
         rm -f subprojects/tecla.wrap
       '';
