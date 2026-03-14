@@ -73,14 +73,22 @@
 
         # Check if gnome-control-center is already running
         if ${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' >/dev/null 2>&1; then
+          moved=0
           if [ -n "$SWAYSOCK" ] || ${pkgs.procps}/bin/pgrep -x sway >/dev/null 2>&1; then
-            ${pkgs.sway}/bin/swaymsg '[class="gnome-control-center"] move to workspace current, focus' 2>/dev/null || \
-            ${pkgs.sway}/bin/swaymsg '[app_id="gnome-control-center"] move to workspace current, focus' 2>/dev/null || \
-            ${pkgs.sway}/bin/swaymsg '[title="Settings"] move to workspace current, focus' 2>/dev/null
+            ${pkgs.sway}/bin/swaymsg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+            if [ "$moved" -eq 0 ]; then
+              ${pkgs.sway}/bin/swaymsg '[app_id="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+            fi
+            if [ "$moved" -eq 0 ]; then
+              ${pkgs.sway}/bin/swaymsg '[title="Settings"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+            fi
           elif ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
-            ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' 2>/dev/null
+            ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
           fi
-          exit 0
+
+          if [ "$moved" -eq 1 ]; then
+            exit 0
+          fi
         fi
 
         export XDG_CURRENT_DESKTOP=GNOME
