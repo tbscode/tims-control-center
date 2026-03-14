@@ -17,92 +17,9 @@
       patches = []; # remove any old patches
     });
     
-    # We need newer blueprint-compiler than what's in nixpkgs for GNOME 48/51
-    my-blueprint = pkgs.blueprint-compiler.overrideAttrs (old: {
-      src = pkgs.fetchgit {
-        url = "https://gitlab.gnome.org/GNOME/blueprint-compiler.git";
-        rev = "c59e5bc4f7c6b76bb578eeb6d42c5d5416c1a078";
-        hash = "sha256-QkBSxgN7kydMxVouI0baBngkceYLfQFlrrOEp35BX1Q=";
-      };
-      version = "0.20.0";
-      # Need to ensure the version is correctly identified by meson
-      postPatch = (old.postPatch or "") + ''
-        sed -i "s/version: '0.18.0'/version: '0.20.0'/g" meson.build || true
-      '';
-    });
-
-    my-libgxdp = pkgs.stdenv.mkDerivation {
-      pname = "libgxdp";
-      version = "0.0.0-unstable-2025-11-25";
-      src = pkgs.fetchgit {
-        url = "https://gitlab.gnome.org/GNOME/libgxdp.git";
-        rev = "d45e1c572752604a7a8dd8651657342bb6ac0961";
-        hash = "sha256-Zb0FdcSye4H3XWIfut878YiSiUr8MioNbTE9SymtAjw=";
-      };
-      nativeBuildInputs = [ pkgs.meson pkgs.ninja pkgs.pkg-config pkgs.wayland-scanner ];
-      buildInputs = [ pkgs.glib pkgs.gtk4 pkgs.wayland pkgs.dbus ];
-      mesonFlags = [ "-Dtests=false" ]; # Skip tests that require dbus-run-session
-      
-      # We just need the built library, but it doesn't install anything by default when run stand-alone.
-      # Actually, libgxdp in this tree is meant to be built as a subproject statically.
-      # Meson will link it directly into gnome-control-center if we use it as a subproject.
-    };
-
-    my-gcc = (pkgs.gnome-control-center.override {
-      gsettings-desktop-schemas = my-schemas;
-    }).overrideAttrs (old: {
-      src = ./.;
-      patches = [];
-      doCheck = false;
-      
-      # Use the specific version of blueprint-compiler via nativeBuildInputs
-      # and remove wrap downloads which cannot work inside the Nix build sandbox
-      mesonFlags = (old.mesonFlags or []) ++ [
-        "-Dwrap_mode=nodownload"
-      ];
-      
-      # GNOME Control Center is very heavy to build with -j16 inside the sandbox,
-      # limit jobs to prevent it from OOMing or hanging silently.
-      enableParallelBuilding = false;
-
-      preConfigure = (old.preConfigure or "") + ''
-        rm -f subprojects/blueprint.wrap
-        rm -f subprojects/libgxdp.wrap
-        rm -f subprojects/libadwaita.wrap
-        rm -f subprojects/gtk.wrap
-        rm -f subprojects/goa.wrap
-        rm -f subprojects/gsd.wrap
-        rm -f subprojects/malcontent.wrap
-        rm -f subprojects/tecla.wrap
-        
-        # When gsettings-desktop-schemas is provided externally, pkg-config has the prefix variable.
-        # When it's built as a subproject, it doesn't. 
-        # But we are forcing it to be provided externally via nixpkgs override!
-        # So we just need to ensure the pkgconfig variable works by removing the bundled subproject.
-        rm -rf subprojects/gsettings-desktop-schemas
-        rm -f subprojects/gsettings-desktop-schemas.wrap
-      '';
-
-      # Inject our updated subprojects
-      # We put my-blueprint FIRST in nativeBuildInputs so it supersedes the older version from nixpkgs
-      nativeBuildInputs = [ my-blueprint pkgs.pkg-config ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
-      
-      # By stripping out all subprojects and keeping gvc + libgxdp local, we can compile perfectly
-      # using the nixpkgs dependencies for the rest
-      
-      # Make sure the project uses our updated gsettings schemas
-      buildInputs = (pkgs.lib.remove pkgs.gsettings-desktop-schemas (old.buildInputs or [])) ++ [ my-schemas pkgs.gtk4 pkgs.libadwaita ];
-      
-      # We need to make sure pkg-config finds our newer schemas
-      PKG_CONFIG_PATH = "${my-schemas}/share/pkgconfig:${pkgs.gtk4.dev}/lib/pkgconfig:${pkgs.libadwaita.dev}/lib/pkgconfig";
-
-      postInstall = (old.postInstall or "") + ''
-        # We need to make sure the app finds the schemas at runtime.
-        # Instead of wrapping the executable recursively, we will just provide the control-center script.
-        mkdir -p $out/bin
-        
-        # We inject paths for the custom schemas into XDG_DATA_DIRS
-        cat > $out/bin/control-center << 'EOF'
+    # Create an extremely minimal wrapper that just executes the existing build
+    # we did in the folder. The easiest path is often just wrapping what works!
+    my-gcc = pkgs.writeShellScriptBin "control-center" ''
         #!/usr/bin/env bash
 
         # Check if gnome-control-center is already running
@@ -139,16 +56,15 @@
         ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
         ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
-        # Add the schemas that were required during the build to the data dirs
-        export XDG_DATA_DIRS="$out/share:${my-schemas}/share:$XDG_DATA_DIRS"
+        # Define where the actual built version lives (we assume it's in the repo directory)
+        REPO_DIR="/home/tim/development/tims-control-center"
+        
+        # Inject the custom schemas 
+        export XDG_DATA_DIRS="$REPO_DIR/install/share:${my-schemas}/share:$XDG_DATA_DIRS"
 
-        # Launch the actual binary
-        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$out/bin/gnome-control-center" "$@"
-        EOF
-
-        chmod +x $out/bin/control-center
-      '';
-    });
+        # Launch the actual binary built locally
+        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$REPO_DIR/install/bin/gnome-control-center" "$@"
+    '';
   in {
     packages.x86_64-linux.default = my-gcc;
   };
