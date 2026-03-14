@@ -81,11 +81,10 @@
 
       # Inject our updated subprojects
       # We put my-blueprint FIRST in nativeBuildInputs so it supersedes the older version from nixpkgs
-      nativeBuildInputs = [ my-blueprint ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
+      nativeBuildInputs = [ my-blueprint pkgs.pkg-config ] ++ (old.nativeBuildInputs or []) ++ [ pkgs.git ];
       
-      # Overriding the input via `pkg.override` wasn't enough because the buildInputs list overrides it
-      # again down the line. We must force it here via buildInputs.
-      buildInputs = (pkgs.lib.remove pkgs.gsettings-desktop-schemas (old.buildInputs or [])) ++ [ my-schemas ];
+      # We need to make sure pkg-config finds our newer schemas
+      PKG_CONFIG_PATH = "${my-schemas}/share/pkgconfig";
 
       postInstall = (old.postInstall or "") + ''
         # We need to make sure the app finds the schemas at runtime.
