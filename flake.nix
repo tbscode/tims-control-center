@@ -24,6 +24,11 @@
         rev = "c59e5bc4f7c6b76bb578eeb6d42c5d5416c1a078";
         hash = "sha256-QkBSxgN7kydMxVouI0baBngkceYLfQFlrrOEp35BX1Q=";
       };
+      # Need to ensure the version is correctly identified by meson
+      postPatch = (old.postPatch or "") + ''
+        substituteInProject "blueprintcompiler/main.py" \
+          --replace "0.18.0" "0.20.0" || true
+      '';
     });
 
     my-libgxdp = pkgs.stdenv.mkDerivation {
