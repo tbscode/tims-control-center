@@ -61,13 +61,22 @@
         "-Dwrap_mode=nodownload"
       ];
 
-      # Remove blueprint.wrap since we provide it via nix
-      # Also remove other wrap files to force using the system's libraries provided by Nixpkgs
-      # Remove blueprint.wrap since we provide it via nix
-      # Also remove other wrap files to force using the system's libraries provided by Nixpkgs
-      # We deliberately keep gvc since it doesn't have a wrap file and needs to be built in-tree.
       preConfigure = (old.preConfigure or "") + ''
-        rm -f subprojects/*.wrap
+        rm -f subprojects/blueprint.wrap
+        rm -f subprojects/libgxdp.wrap
+        rm -f subprojects/libadwaita.wrap
+        rm -f subprojects/gtk.wrap
+        rm -f subprojects/goa.wrap
+        rm -f subprojects/gsd.wrap
+        rm -f subprojects/malcontent.wrap
+        rm -f subprojects/tecla.wrap
+        
+        # When gsettings-desktop-schemas is provided externally, pkg-config has the prefix variable.
+        # When it's built as a subproject, it doesn't. 
+        # But we are forcing it to be provided externally via nixpkgs override!
+        # So we just need to ensure the pkgconfig variable works by removing the bundled subproject.
+        rm -rf subprojects/gsettings-desktop-schemas
+        rm -f subprojects/gsettings-desktop-schemas.wrap
       '';
 
       # Inject our updated subprojects
