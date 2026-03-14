@@ -65,7 +65,8 @@
         cat > $out/bin/control-center << 'EOF'
         #!/usr/bin/env bash
 
-        SCRIPT_DIR="$(cd "$(dirname "''${BASH_SOURCE[0]}")" && pwd)"
+        SCRIPT_PATH="$(readlink -f "''${BASH_SOURCE[0]}")"
+        SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
         # Check if gnome-control-center is already running
         if ${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' >/dev/null 2>&1; then
@@ -101,8 +102,33 @@
         ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
         ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
 
-        # Ensure bundled schemas/resources are available to GSettings and GTK.
-        export XDG_DATA_DIRS="$SCRIPT_DIR/../share:$XDG_DATA_DIRS"
+        # Ensure bundled and system schemas/resources are available to GSettings and GTK.
+        export XDG_DATA_DIRS="$SCRIPT_DIR/../share:''${XDG_DATA_DIRS:-/run/current-system/sw/share:/etc/profiles/per-user/$USER/share:/nix/var/nix/profiles/default/share}"
+
+        SCHEMA_MERGE_DIR="/tmp/tims-control-center-schemas-$UID"
+        mkdir -p "$SCHEMA_MERGE_DIR"
+
+        merge_schemas_from() {
+          local dir="$1"
+          if [ -d "$dir" ]; then
+            cp -f "$dir"/*.xml "$SCHEMA_MERGE_DIR" 2>/dev/null || true
+            cp -f "$dir"/*.gschema.override "$SCHEMA_MERGE_DIR" 2>/dev/null || true
+          fi
+        }
+
+        merge_schemas_from "$SCRIPT_DIR/../share/glib-2.0/schemas"
+        merge_schemas_from "/run/current-system/sw/share/glib-2.0/schemas"
+
+        for dir in /run/current-system/sw/share/gsettings-schemas/*/glib-2.0/schemas; do
+          merge_schemas_from "$dir"
+        done
+
+        for dir in "/etc/profiles/per-user/$USER"/share/gsettings-schemas/*/glib-2.0/schemas; do
+          merge_schemas_from "$dir"
+        done
+
+        ${pkgs.glib.bin}/bin/glib-compile-schemas "$SCHEMA_MERGE_DIR" >/dev/null 2>&1 || true
+        export GSETTINGS_SCHEMA_DIR="$SCHEMA_MERGE_DIR"
 
         exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
         EOF
