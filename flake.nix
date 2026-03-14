@@ -57,7 +57,7 @@
         pkgs.json-glib
         pkgs.libsoup_3
         pkgs.libepoxy
-        pkgs.gudev
+        pkgs.libgudev
         pkgs.tecla
         pkgs.krb5
         pkgs.smbclient
