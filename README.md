@@ -9,3 +9,8 @@ Notably:
 - add Nix flake packaging for `control-center` command
 - ship prebuilt binaries in `prebuilt/` for flake packaging (x86_64-linux)
 - remove the `Multitasking`, `Wellbeing`, `Accessibility`, and `Online Accounts` sections from the panel list
+
+Repository history note:
+
+- `main` was intentionally squashed to a single commit to reduce clone/download time for future checkouts.
+- the previous full commit history is preserved on `old-commit-history`.
