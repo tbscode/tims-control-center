@@ -1,0 +1,10 @@
+__pycache__
+_build/
+**/*~
+/subprojects/*
+!/subprojects/*.wrap
+.flatpak-builder/
+.cache/clangd/
+install/
+result
+result-*

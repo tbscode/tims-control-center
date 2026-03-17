@@ -1,0 +1,32 @@
+using Gtk 4.0;
+
+// Bad examples
+Image a {
+  icon-name: "cat-symbolic";
+}
+
+Button b {
+  icon-name: "foobar";
+}
+
+// Good examples
+Button c {
+  icon-name: "foobar";
+  label: _("button");
+}
+
+Image d {
+  accessible-role: presentation;
+}
+
+Box e {
+  Image {
+    accessibility {
+      labelled-by: f;
+    }
+  }
+
+  Label f {
+    label: _("text");
+  }
+}

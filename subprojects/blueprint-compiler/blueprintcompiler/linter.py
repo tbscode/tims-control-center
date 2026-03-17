@@ -1,0 +1,77 @@
+# linter.py
+#
+# Copyright © 2024 GNOME Foundation Inc.
+# Original Author: Sonny Piers <sonnyp@gnome.org>
+#
+# This file is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This file is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+from typing import Callable
+
+from .ast_utils import AstNode
+from .errors import CompileError
+from .language import UI, Child, Object, Property
+from .linter_rules import LINTER_RULES
+
+
+def walk_ast(
+    node: AstNode, func: Callable[[str, Object, list[Object]], None], stack=None
+):
+    stack = stack or []
+
+    if isinstance(node, UI):
+        for child in node.children:
+            if isinstance(child, Object):
+                walk_ast(child, func, stack)
+
+    if isinstance(node, Object):
+        if node.class_name.gir_type is not None:
+            type = node.class_name.gir_type.full_name
+            func(type, node, stack)
+
+        for child in node.content.children[Child]:
+            walk_ast(child.object, func, stack + [node])
+
+        # for properties that have object as value
+        for prop in node.content.children[Property]:
+            if hasattr(prop, "value") and hasattr(prop.value, "object"):
+                walk_ast(prop.value.object, func, stack + [node])
+
+
+def lint(
+    ast: AstNode,
+    categories: list[str] = ["all"],
+    rule_ids: list[str] = ["all"],
+    platform: str = "adw",
+    no_suggestions: bool = False,
+):
+    problems: list[CompileError] = []
+    rules = [
+        Rule(problems)
+        for Rule in LINTER_RULES
+        if (
+            ("all" in categories or Rule.category in categories)
+            and ("all" in rule_ids or Rule.id in rule_ids)
+            and (Rule.platform is None or Rule.platform == platform)
+            and (Rule.severity != "suggestion" or not no_suggestions)
+        )
+    ]
+
+    def visit_node(type: str, child: Object, stack: list[Object]):
+        for rule in rules:
+            rule.check(type, child, stack)
+
+    walk_ast(ast, visit_node)
+    return problems

@@ -1,0 +1,4 @@
+[wrap-git]
+url = https://gitlab.gnome.org/GNOME/libgxdp.git
+revision = d45e1c572752604a7a8dd8651657342bb6ac0961
+depth = 1
