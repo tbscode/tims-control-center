@@ -71,10 +71,27 @@
         SCRIPT_PATH="$(readlink -f "''${BASH_SOURCE[0]}")"
         SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
+        IS_SWAY=0
+        if [ -n "$SWAYSOCK" ] || [ "${XDG_SESSION_DESKTOP:-}" = "sway" ] || echo "${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'sway'; then
+          IS_SWAY=1
+        fi
+
+        IS_I3=0
+        if [ "${XDG_SESSION_DESKTOP:-}" = "i3" ] || echo "${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'i3'; then
+          IS_I3=1
+        fi
+
+        # In GNOME sessions, prefer the system control center.
+        if [ "$IS_SWAY" -eq 0 ] && [ "$IS_I3" -eq 0 ]; then
+          if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
+            exec /run/current-system/sw/bin/gnome-control-center "$@"
+          fi
+        fi
+
         # Check if gnome-control-center is already running
         if ${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' >/dev/null 2>&1; then
           moved=0
-          if [ -n "$SWAYSOCK" ] || ${pkgs.procps}/bin/pgrep -x sway >/dev/null 2>&1; then
+          if [ "$IS_SWAY" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x sway >/dev/null 2>&1; then
             ${pkgs.sway}/bin/swaymsg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
             if [ "$moved" -eq 0 ]; then
               ${pkgs.sway}/bin/swaymsg '[app_id="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
@@ -82,7 +99,7 @@
             if [ "$moved" -eq 0 ]; then
               ${pkgs.sway}/bin/swaymsg '[title="Settings"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
             fi
-          elif ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
+          elif [ "$IS_I3" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
             ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
           fi
 
@@ -100,18 +117,20 @@
         ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
 
         # Ensure SessionManager and GNOME settings-daemon plugins are available first.
-        ${pkgs.systemd}/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
-        ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
+        if [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ]; then
+          ${pkgs.systemd}/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
+          ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
 
-        # If gsd-rfkill started before SessionManager, it can stay half-initialized.
-        ${pkgs.procps}/bin/pkill -f gsd-rfkill >/dev/null 2>&1 || true
+          # If gsd-rfkill started before SessionManager, it can stay half-initialized.
+          ${pkgs.procps}/bin/pkill -f gsd-rfkill >/dev/null 2>&1 || true
 
-        # Trigger gnome-settings-daemon plugin activation
-        ${pkgs.systemd}/bin/systemctl --user start gnome-settings-daemon-init.service 2>/dev/null || true
+          # Trigger gnome-settings-daemon plugin activation
+          ${pkgs.systemd}/bin/systemctl --user start gnome-settings-daemon-init.service 2>/dev/null || true
 
-        # Force DBus activation of rfkill and wait
-        ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
-        ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
+          # Force DBus activation of rfkill and wait
+          ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
+          ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
+        fi
 
         # Ensure bundled and system schemas/resources are available to GSettings and GTK.
         data_dirs=()
