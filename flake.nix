@@ -171,6 +171,19 @@
         EOF
 
         chmod +x $out/bin/control-center
+
+        ln -s $out/bin/control-center $out/bin/gnome-control-center
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.service \
+          --replace "/home/tim/development/tims-control-center/install/bin/gnome-control-center" "$out/bin/gnome-control-center"
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.GlobalShortcutsProvider.service \
+          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-global-shortcuts-provider" \
+          "$out/libexec/gnome-control-center-global-shortcuts-provider"
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.SearchProvider.service \
+          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-search-provider" \
+          "$out/libexec/gnome-control-center-search-provider"
       '';
 
       meta.mainProgram = "control-center";
