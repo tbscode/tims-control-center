@@ -72,12 +72,12 @@
         SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
         IS_SWAY=0
-        if [ -n "$SWAYSOCK" ] || [ "${XDG_SESSION_DESKTOP:-}" = "sway" ] || echo "${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'sway'; then
+        if [ -n "$SWAYSOCK" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "sway" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'sway'; then
           IS_SWAY=1
         fi
 
         IS_I3=0
-        if [ "${XDG_SESSION_DESKTOP:-}" = "i3" ] || echo "${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'i3'; then
+        if [ "''${XDG_SESSION_DESKTOP:-}" = "i3" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'i3'; then
           IS_I3=1
         fi
 
