@@ -97,7 +97,12 @@
               ${pkgs.sway}/bin/swaymsg '[app_id="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
             fi
             if [ "$moved" -eq 0 ]; then
-              ${pkgs.sway}/bin/swaymsg '[title="Settings"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+              # Avoid broad title matches like "Settings" that can catch browser tabs.
+              # Prefer targeting the known control-center process by PID.
+              first_pid=$(${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' | ${pkgs.coreutils}/bin/head -n1)
+              if [ -n "$first_pid" ]; then
+                ${pkgs.sway}/bin/swaymsg "[pid=$first_pid] move to workspace current, focus" >/dev/null 2>&1 && moved=1 || true
+              fi
             fi
           elif [ "$IS_I3" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
             ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
