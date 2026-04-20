@@ -197,6 +197,18 @@
           ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
         fi
 
+        # Hyprland fast path: avoid legacy schema merging from i3/sway setup,
+        # which can pull in mismatched resources and break panel styling.
+        if [ "$CC_MODE" = "hypr-minimal" ] || [ "$CC_MODE" = "hypr-dark" ]; then
+          if [ -n "''${XDG_DATA_DIRS:-}" ]; then
+            export XDG_DATA_DIRS="$SCRIPT_DIR/../share:''${XDG_DATA_DIRS}"
+          else
+            export XDG_DATA_DIRS="$SCRIPT_DIR/../share:/run/current-system/sw/share:/etc/profiles/per-user/$USER/share:/nix/var/nix/profiles/default/share"
+          fi
+          export GST_PLUGIN_SYSTEM_PATH="${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-good}/lib/gstreamer-1.0"
+          exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
+        fi
+
         # Ensure bundled and system schemas/resources are available to GSettings and GTK.
         data_dirs=()
         schema_dirs=()
@@ -207,6 +219,9 @@
             schema_dirs+=("$d")
           fi
         }
+
+        data_dirs+=("$SCRIPT_DIR/../share")
+        add_schema_dir "$SCRIPT_DIR/../share/glib-2.0/schemas"
 
         for base in /run/current-system/sw /etc/profiles/per-user/$USER /nix/var/nix/profiles/default; do
           if [ -d "$base/share" ]; then
@@ -220,9 +235,6 @@
             fi
           done
         done
-
-        data_dirs+=("$SCRIPT_DIR/../share")
-        add_schema_dir "$SCRIPT_DIR/../share/glib-2.0/schemas"
 
         joined_data_dirs=""
         for d in "''${data_dirs[@]}"; do
