@@ -81,8 +81,13 @@
           IS_I3=1
         fi
 
+        IS_HYPRLAND=0
+        if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "Hyprland" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "hyprland" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'hyprland'; then
+          IS_HYPRLAND=1
+        fi
+
         # In GNOME sessions, prefer the system control center.
-        if [ "$IS_SWAY" -eq 0 ] && [ "$IS_I3" -eq 0 ]; then
+        if [ "$IS_SWAY" -eq 0 ] && [ "$IS_I3" -eq 0 ] && [ "$IS_HYPRLAND" -eq 0 ]; then
           if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
             exec /run/current-system/sw/bin/gnome-control-center "$@"
           fi
@@ -106,6 +111,11 @@
             fi
           elif [ "$IS_I3" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
             ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+          elif [ "$IS_HYPRLAND" -eq 1 ] || [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+            first_pid=$(${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' | ${pkgs.coreutils}/bin/head -n1)
+            if [ -n "$first_pid" ]; then
+              ${pkgs.hyprland}/bin/hyprctl dispatch focuswindow pid:$first_pid >/dev/null 2>&1 && moved=1 || true
+            fi
           fi
 
           if [ "$moved" -eq 1 ]; then
@@ -117,12 +127,19 @@
         export XDG_SESSION_DESKTOP=gnome
         export XDG_SESSION_TYPE=wayland
 
+        # In non-GNOME sessions, force libadwaita to read GNOME settings
+        # directly instead of portal color-scheme hints.
+        export ADW_DISABLE_PORTAL=1
+        if ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
+          export GTK_THEME=Adwaita:dark
+        fi
+
         # Keep DBus/systemd user activation in sync with the launch environment
         ${pkgs.systemd}/bin/systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
         ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
 
         # Ensure SessionManager and GNOME settings-daemon plugins are available first.
-        if [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ]; then
+        if [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ] || [ "$IS_HYPRLAND" -eq 1 ]; then
           ${pkgs.systemd}/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
           ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
 
