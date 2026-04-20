@@ -86,6 +86,47 @@
           IS_HYPRLAND=1
         fi
 
+        CC_MODE="''${TIMS_CC_MODE:-auto}"
+        if [ "''${CC_MODE}" = "auto" ]; then
+          if [ "$IS_HYPRLAND" -eq 1 ]; then
+            CC_MODE="hypr-minimal"
+          elif [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ]; then
+            CC_MODE="legacy"
+          else
+            CC_MODE="system"
+          fi
+        fi
+
+        ENABLE_ENV_SYNC=1
+        ENABLE_BRIDGE=0
+        FORCE_DARK=0
+        case "$CC_MODE" in
+          system)
+            ;;
+          legacy)
+            ENABLE_BRIDGE=1
+            ;;
+          hypr-minimal)
+            ENABLE_ENV_SYNC=0
+            ;;
+          hypr-bridge)
+            ENABLE_BRIDGE=1
+            ;;
+          hypr-dark)
+            FORCE_DARK=1
+            ;;
+          *)
+            CC_MODE="hypr-minimal"
+            ENABLE_ENV_SYNC=0
+            ;;
+        esac
+
+        if [ "$CC_MODE" = "system" ]; then
+          if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
+            exec /run/current-system/sw/bin/gnome-control-center "$@"
+          fi
+        fi
+
         # In GNOME sessions, prefer the system control center.
         if [ "$IS_SWAY" -eq 0 ] && [ "$IS_I3" -eq 0 ] && [ "$IS_HYPRLAND" -eq 0 ]; then
           if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
@@ -130,16 +171,18 @@
         # In non-GNOME sessions, force libadwaita to read GNOME settings
         # directly instead of portal color-scheme hints.
         export ADW_DISABLE_PORTAL=1
-        if ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
+        if [ "$FORCE_DARK" -eq 1 ] || ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
           export GTK_THEME=Adwaita:dark
         fi
 
         # Keep DBus/systemd user activation in sync with the launch environment
-        ${pkgs.systemd}/bin/systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
-        ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+        if [ "$ENABLE_ENV_SYNC" -eq 1 ]; then
+          ${pkgs.systemd}/bin/systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+          ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+        fi
 
         # Ensure SessionManager and GNOME settings-daemon plugins are available first.
-        if [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ] || [ "$IS_HYPRLAND" -eq 1 ]; then
+        if [ "$ENABLE_BRIDGE" -eq 1 ] && { [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ] || [ "$IS_HYPRLAND" -eq 1 ]; }; then
           ${pkgs.systemd}/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
           ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
 
