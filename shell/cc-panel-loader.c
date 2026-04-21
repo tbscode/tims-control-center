@@ -41,13 +41,11 @@ extern GType cc_date_time_panel_get_type (void);
 extern GType cc_display_panel_get_type (void);
 extern GType cc_keyboard_panel_get_type (void);
 extern GType cc_mouse_panel_get_type (void);
-extern GType cc_multitasking_panel_get_type (void);
 #ifdef BUILD_NETWORK
 extern GType cc_network_panel_get_type (void);
 extern GType cc_wifi_panel_get_type (void);
 #endif /* BUILD_NETWORK */
 extern GType cc_notifications_panel_get_type (void);
-extern GType cc_online_accounts_panel_get_type (void);
 extern GType cc_power_panel_get_type (void);
 extern GType cc_printers_panel_get_type (void);
 extern GType cc_privacy_panel_get_type (void);
@@ -55,11 +53,9 @@ extern GType cc_search_panel_get_type (void);
 extern GType cc_sharing_panel_get_type (void);
 extern GType cc_sound_panel_get_type (void);
 extern GType cc_system_panel_get_type (void);
-extern GType cc_ua_panel_get_type (void);
 #ifdef BUILD_WACOM
 extern GType cc_wacom_panel_get_type (void);
 #endif /* BUILD_WACOM */
-extern GType cc_wellbeing_panel_get_type (void);
 #ifdef BUILD_WWAN
 extern GType cc_wwan_panel_get_type (void);
 #endif /* BUILD_WWAN */
@@ -95,13 +91,11 @@ static CcPanelLoaderVtable default_panels[] =
   PANEL_TYPE("display",          cc_display_panel_get_type,              NULL),
   PANEL_TYPE("keyboard",         cc_keyboard_panel_get_type,             NULL),
   PANEL_TYPE("mouse",            cc_mouse_panel_get_type,                NULL),
-  PANEL_TYPE("multitasking",     cc_multitasking_panel_get_type,         NULL),
 #ifdef BUILD_NETWORK
   PANEL_TYPE("network",          cc_network_panel_get_type,              NULL),
   PANEL_TYPE("wifi",             cc_wifi_panel_get_type,                 cc_wifi_panel_static_init_func),
 #endif
   PANEL_TYPE("notifications",    cc_notifications_panel_get_type,        NULL),
-  PANEL_TYPE("online-accounts",  cc_online_accounts_panel_get_type,      NULL),
   PANEL_TYPE("power",            cc_power_panel_get_type,                NULL),
   PANEL_TYPE("printers",         cc_printers_panel_get_type,             NULL),
   PANEL_TYPE("privacy",          cc_privacy_panel_get_type,              NULL),
@@ -109,11 +103,9 @@ static CcPanelLoaderVtable default_panels[] =
   PANEL_TYPE("sharing",          cc_sharing_panel_get_type,              cc_sharing_panel_static_init_func),
   PANEL_TYPE("sound",            cc_sound_panel_get_type,                NULL),
   PANEL_TYPE("system",           cc_system_panel_get_type,               NULL),
-  PANEL_TYPE("universal-access", cc_ua_panel_get_type,                   NULL),
 #ifdef BUILD_WACOM
   PANEL_TYPE("wacom",            cc_wacom_panel_get_type,                cc_wacom_panel_static_init_func),
 #endif
-  PANEL_TYPE("wellbeing",        cc_wellbeing_panel_get_type,            NULL),
 #ifdef BUILD_WWAN
   PANEL_TYPE("wwan",             cc_wwan_panel_get_type,                 cc_wwan_panel_static_init_func),
 #endif

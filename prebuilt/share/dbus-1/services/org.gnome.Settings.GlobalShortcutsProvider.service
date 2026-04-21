@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.gnome.Settings.GlobalShortcutsProvider
+Exec=/home/tim/development/tims-control-center/install/libexec/gnome-control-center-global-shortcuts-provider

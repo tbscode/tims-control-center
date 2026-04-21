@@ -25,5 +25,6 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_DIAGNOSTICS_PAGE (cc_diagnostics_page_get_type ())
-G_DECLARE_FINAL_TYPE (CcDiagnosticsPage, cc_diagnostics_page, CC, DIAGNOSTICS_PAGE, AdwNavigationPage);
+G_DECLARE_FINAL_TYPE (CcDiagnosticsPage, cc_diagnostics_page, CC, DIAGNOSTICS_PAGE, AdwNavigationPage)
+
 G_END_DECLS

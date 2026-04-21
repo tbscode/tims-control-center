@@ -1,0 +1,10 @@
+prefix=/home/tim/development/tims-control-center/install
+datarootdir=/home/tim/development/tims-control-center/install/share
+datadir=/home/tim/development/tims-control-center/install/share
+pkgdatadir=${datadir}/gnome-control-center
+keysdir=${pkgdatadir}/keybindings
+
+Name: gnome-keybindings
+Description: Keybindings configuration for GNOME applications
+Version: 51.alpha
+

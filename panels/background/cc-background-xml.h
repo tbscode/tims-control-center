@@ -25,7 +25,8 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_BACKGROUND_XML (cc_background_xml_get_type ())
-G_DECLARE_FINAL_TYPE (CcBackgroundXml, cc_background_xml, CC, BACKGROUND_XML, GObject);
+G_DECLARE_FINAL_TYPE (CcBackgroundXml, cc_background_xml, CC, BACKGROUND_XML, GObject)
+
 CcBackgroundXml *cc_background_xml_new (void);
 
 void cc_background_xml_save                          (CcBackgroundItem   *item,

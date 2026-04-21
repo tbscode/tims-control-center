@@ -50,7 +50,7 @@ struct _CcPanelList
   /* When clicking on Details or Devices row, show it
    * automatically select the first panel of the list.
    */
-  gboolean            autoselect_panel;
+  gboolean            autoselect_panel : 1;
 
   gchar              *current_panel_id;
   gchar              *search_query;
@@ -381,7 +381,6 @@ static const gchar * const panel_order[] = {
   "display",
   "sound",
   "power",
-  "multitasking",
   "background",
 
   "separator",
@@ -389,9 +388,7 @@ static const gchar * const panel_order[] = {
   "applications",
   "notifications",
   "search",
-  "online-accounts",
   "sharing",
-  "wellbeing",
 
   "separator",
 
@@ -403,7 +400,6 @@ static const gchar * const panel_order[] = {
 
   "separator",
 
-  "universal-access",
   "privacy",
   "system",
   "reset-settings",

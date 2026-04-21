@@ -26,7 +26,8 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_BATTERY_ROW (cc_battery_row_get_type())
-G_DECLARE_FINAL_TYPE (CcBatteryRow, cc_battery_row, CC, BATTERY_ROW, GtkListBoxRow);
+G_DECLARE_FINAL_TYPE (CcBatteryRow, cc_battery_row, CC, BATTERY_ROW, GtkListBoxRow)
+
 CcBatteryRow* cc_battery_row_new                    (UpDevice *device,
                                                      gboolean  primary);
 

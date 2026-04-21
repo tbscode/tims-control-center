@@ -125,8 +125,6 @@ cc_fingerprint_manager_set_property (GObject      *object,
 static void
 cc_fingerprint_manager_constructed (GObject *object)
 {
-  G_OBJECT_CLASS (cc_fingerprint_manager_parent_class)->constructed (object);
-
   cc_fingerprint_manager_update_state (CC_FINGERPRINT_MANAGER (object), NULL, NULL);
 }
 

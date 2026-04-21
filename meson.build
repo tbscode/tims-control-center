@@ -35,6 +35,10 @@ config_h.set_quoted('TEST_NM_PYTHON', python.full_path())
 
 application_id = 'org.gnome.Settings'
 
+if get_option('profile') == 'development'
+    application_id += '.' + 'Devel'
+endif
+
 version_split = meson.project_version().split('.')
 
 # defines
@@ -45,6 +49,7 @@ set_defines = [
   ['PACKAGE_VERSION', meson.project_version()],
   ['VERSION', meson.project_version()],
   ['MAJOR_VERSION', version_split[0]],
+  ['PROFILE', get_option('profile')],
   # i18n
   ['GETTEXT_PACKAGE', control_center_gettext]
 ]
@@ -129,7 +134,7 @@ libgvc = subproject(
 libgvc_dep = libgvc.get_variable('libgvc_dep')
 
 libadwaita_version = '>= 1.8.alpha'
-gtk_version = '>= 4.23.0'
+gtk_version = '>= 4.15.2'
 goa_req_version = '>= 3.51.0'
 pulse_req_version = '>= 2.0'
 malcontent_version = '>= 0.14.alpha'
@@ -229,7 +234,6 @@ gio_dep = dependency('gio-2.0')
 glib_dep = dependency('glib-2.0', version: '>= 2.76.6')
 gnome_desktop_dep = dependency('gnome-desktop-4')
 gnome_bg_dep = dependency('gnome-bg-4')
-gnome_qr_gtk_dep = dependency('gnome-qr-gtk-4')
 gnome_settings_dep = dependency('gnome-settings-daemon', version: '>= 48.rc', fallback: 'gsd')
 goa_dep = dependency('goa-1.0', version: goa_req_version, fallback: 'goa')
 gsettings_desktop_dep = dependency('gsettings-desktop-schemas', version: '>= 50.alpha')
@@ -348,7 +352,6 @@ if host_is_linux
   network_manager_deps = [
     dependency('libnm', version: '>= 1.52.0'),
     dependency('libnma-gtk4', version: '>= 1.10.2'),
-    gnome_qr_gtk_dep,
     mm_dep,
   ]
 endif

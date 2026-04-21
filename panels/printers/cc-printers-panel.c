@@ -74,6 +74,7 @@ struct _CcPrintersPanel
   CcPermissionInfobar *permission_infobar;
   GtkWidget           *printer_add_button;
   GtkWidget           *printer_add_button_empty;
+  GtkScrolledWindow   *scrolled_window;
   GtkSearchBar        *search_bar;
   GtkWidget           *search_button;
   GtkEditable         *search_entry;
@@ -869,16 +870,24 @@ actualize_printers_list_cb (GObject      *source_object,
 
   update_sensitivity (user_data);
 
-  /* Scroll the view to show the newly added printer-entry. */
   if (self->new_printer_name != NULL)
     {
+      GtkAllocation           allocation;
+      GtkAdjustment          *adjustment;
       GtkWidget              *printer_entry;
+
+      /* Scroll the view to show the newly added printer-entry. */
+      adjustment = gtk_scrolled_window_get_vadjustment (self->scrolled_window);
 
       printer_entry = GTK_WIDGET (g_hash_table_lookup (self->printer_entries,
                                                        self->new_printer_name));
       if (printer_entry != NULL)
         {
-          gtk_widget_grab_focus (printer_entry);
+          gtk_widget_get_allocation (printer_entry, &allocation);
+          g_clear_pointer (&self->new_printer_name, g_free);
+
+          gtk_adjustment_set_value (adjustment,
+                                    allocation.y - gtk_widget_get_margin_top (printer_entry));
         }
     }
 }
@@ -1207,6 +1216,7 @@ cc_printers_panel_class_init (CcPrintersPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, permission_infobar);
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, printer_add_button);
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, printer_add_button_empty);
+  gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, scrolled_window);
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, search_bar);
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, search_button);
   gtk_widget_class_bind_template_child (widget_class, CcPrintersPanel, search_entry);
@@ -1220,9 +1230,18 @@ cc_printers_panel_class_init (CcPrintersPanelClass *klass)
 static void
 cc_printers_panel_init (CcPrintersPanel *self)
 {
+  g_autoptr(GtkCssProvider) provider = NULL;
+
   gtk_widget_init_template (GTK_WIDGET (self));
 
   g_resources_register (cc_printers_get_resource ());
+
+  provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_resource (provider,
+                                       "/org/gnome/control-center/printers/printers.css");
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              GTK_STYLE_PROVIDER (provider),
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
   /* initialize main data structure */
   self->reference = g_object_new (G_TYPE_OBJECT, NULL);

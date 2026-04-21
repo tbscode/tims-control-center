@@ -1,0 +1,294 @@
+{
+  description = "Custom GNOME Control Center";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { self, nixpkgs }: let
+    pkgs = import nixpkgs { system = "x86_64-linux"; };
+
+    # Package prebuilt binaries and patch ELF dependencies.
+    my-gcc = pkgs.stdenv.mkDerivation {
+      pname = "gnome-control-center-prebuilt";
+      version = "49.5-custom";
+
+      src = ./prebuilt;
+
+      nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+
+      buildInputs = [
+        pkgs.glib
+        pkgs.gtk4
+        pkgs.libadwaita
+        pkgs.gnome-settings-daemon
+        pkgs.gnome-desktop
+        pkgs.gnome-online-accounts
+        pkgs.libgtop
+        pkgs.libsecret
+        pkgs.polkit
+        pkgs.libpwquality
+        pkgs.gcr
+        pkgs.upower
+        pkgs.pulseaudio
+        pkgs.colord
+        pkgs.accountsservice
+        pkgs.udisks2
+        pkgs.cups
+        pkgs.libnma-gtk4
+        pkgs.modemmanager
+        pkgs.networkmanager
+        pkgs.gnome-bluetooth
+        pkgs.libwacom
+        pkgs.cairo
+        pkgs.pango
+        pkgs.harfbuzz
+        pkgs.json-glib
+        pkgs.libsoup_3
+        pkgs.libepoxy
+        pkgs.libgudev
+        pkgs.tecla
+        pkgs.krb5
+        pkgs.samba
+        pkgs.ibus
+        pkgs.colord-gtk4
+        pkgs.gst_all_1.gstreamer
+        pkgs.gst_all_1.gst-plugins-base
+        pkgs.gst_all_1.gst-plugins-good
+      ];
+
+      installPhase = ''
+        mkdir -p $out
+        cp -r . $out/
+        
+        # Backup the original binary
+        mv $out/bin/gnome-control-center $out/bin/.gnome-control-center-wrapped
+
+        # Create a wrapper script that simulates control_center.sh
+        cat > $out/bin/control-center << 'EOF'
+        #!/usr/bin/env bash
+
+        SCRIPT_PATH="$(readlink -f "''${BASH_SOURCE[0]}")"
+        SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+
+        IS_SWAY=0
+        if [ -n "$SWAYSOCK" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "sway" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'sway'; then
+          IS_SWAY=1
+        fi
+
+        IS_I3=0
+        if [ "''${XDG_SESSION_DESKTOP:-}" = "i3" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'i3'; then
+          IS_I3=1
+        fi
+
+        IS_HYPRLAND=0
+        if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "Hyprland" ] || [ "''${XDG_SESSION_DESKTOP:-}" = "hyprland" ] || echo "''${XDG_CURRENT_DESKTOP:-}" | ${pkgs.gnugrep}/bin/grep -qi 'hyprland'; then
+          IS_HYPRLAND=1
+        fi
+
+        CC_MODE="''${TIMS_CC_MODE:-auto}"
+        if [ "''${CC_MODE}" = "auto" ]; then
+          if [ "$IS_HYPRLAND" -eq 1 ]; then
+            CC_MODE="hypr-minimal"
+          elif [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ]; then
+            CC_MODE="legacy"
+          else
+            CC_MODE="system"
+          fi
+        fi
+
+        ENABLE_ENV_SYNC=1
+        ENABLE_BRIDGE=0
+        FORCE_DARK=0
+        case "$CC_MODE" in
+          system)
+            ;;
+          legacy)
+            ENABLE_BRIDGE=1
+            ;;
+          hypr-minimal)
+            ENABLE_ENV_SYNC=0
+            ;;
+          hypr-bridge)
+            ENABLE_BRIDGE=1
+            ;;
+          hypr-dark)
+            FORCE_DARK=1
+            ;;
+          *)
+            CC_MODE="hypr-minimal"
+            ENABLE_ENV_SYNC=0
+            ;;
+        esac
+
+        if [ "$CC_MODE" = "system" ]; then
+          if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
+            exec /run/current-system/sw/bin/gnome-control-center "$@"
+          fi
+        fi
+
+        # In GNOME sessions, prefer the system control center.
+        if [ "$IS_SWAY" -eq 0 ] && [ "$IS_I3" -eq 0 ] && [ "$IS_HYPRLAND" -eq 0 ]; then
+          if [ -x /run/current-system/sw/bin/gnome-control-center ]; then
+            exec /run/current-system/sw/bin/gnome-control-center "$@"
+          fi
+        fi
+
+        # Check if gnome-control-center is already running
+        if ${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' >/dev/null 2>&1; then
+          moved=0
+          if [ "$IS_SWAY" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x sway >/dev/null 2>&1; then
+            ${pkgs.sway}/bin/swaymsg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+            if [ "$moved" -eq 0 ]; then
+              ${pkgs.sway}/bin/swaymsg '[app_id="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+            fi
+            if [ "$moved" -eq 0 ]; then
+              # Avoid broad title matches like "Settings" that can catch browser tabs.
+              # Prefer targeting the known control-center process by PID.
+              first_pid=$(${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' | ${pkgs.coreutils}/bin/head -n1)
+              if [ -n "$first_pid" ]; then
+                ${pkgs.sway}/bin/swaymsg "[pid=$first_pid] move to workspace current, focus" >/dev/null 2>&1 && moved=1 || true
+              fi
+            fi
+          elif [ "$IS_I3" -eq 1 ] || ${pkgs.procps}/bin/pgrep -x i3 >/dev/null 2>&1; then
+            ${pkgs.i3}/bin/i3-msg '[class="gnome-control-center"] move to workspace current, focus' >/dev/null 2>&1 && moved=1 || true
+          elif [ "$IS_HYPRLAND" -eq 1 ] || [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+            first_pid=$(${pkgs.procps}/bin/pgrep -f '[g]nome-control-center' | ${pkgs.coreutils}/bin/head -n1)
+            if [ -n "$first_pid" ]; then
+              ${pkgs.hyprland}/bin/hyprctl dispatch focuswindow pid:$first_pid >/dev/null 2>&1 && moved=1 || true
+            fi
+          fi
+
+          if [ "$moved" -eq 1 ]; then
+            exit 0
+          fi
+        fi
+
+        export XDG_CURRENT_DESKTOP=GNOME
+        export XDG_SESSION_DESKTOP=gnome
+        export XDG_SESSION_TYPE=wayland
+
+        # In non-GNOME sessions, force libadwaita to read GNOME settings
+        # directly instead of portal color-scheme hints.
+        export ADW_DISABLE_PORTAL=1
+        if [ "$FORCE_DARK" -eq 1 ] || ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
+          export GTK_THEME=Adwaita:dark
+        fi
+
+        # Keep DBus/systemd user activation in sync with the launch environment
+        if [ "$ENABLE_ENV_SYNC" -eq 1 ]; then
+          ${pkgs.systemd}/bin/systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+          ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+        fi
+
+        # Ensure SessionManager and GNOME settings-daemon plugins are available first.
+        if [ "$ENABLE_BRIDGE" -eq 1 ] && { [ "$IS_SWAY" -eq 1 ] || [ "$IS_I3" -eq 1 ] || [ "$IS_HYPRLAND" -eq 1 ]; }; then
+          ${pkgs.systemd}/bin/systemctl --user start gnome-session-manager-bridge.service 2>/dev/null || true
+          ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SessionManager >/dev/null 2>&1 || true
+
+          # If gsd-rfkill started before SessionManager, it can stay half-initialized.
+          ${pkgs.procps}/bin/pkill -f gsd-rfkill >/dev/null 2>&1 || true
+
+          # Trigger gnome-settings-daemon plugin activation
+          ${pkgs.systemd}/bin/systemctl --user start gnome-settings-daemon-init.service 2>/dev/null || true
+
+          # Force DBus activation of rfkill and wait
+          ${pkgs.glib.bin}/bin/gdbus call --session --dest org.gnome.SettingsDaemon.Rfkill --object-path /org/gnome/SettingsDaemon/Rfkill --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 || true
+          ${pkgs.coreutils}/bin/timeout 0.5 ${pkgs.glib.bin}/bin/gdbus wait --session org.gnome.SettingsDaemon.Rfkill >/dev/null 2>&1 || true
+        fi
+
+        # Hyprland fast path: avoid legacy schema merging from i3/sway setup,
+        # which can pull in mismatched resources and break panel styling.
+        if [ "$CC_MODE" = "hypr-minimal" ] || [ "$CC_MODE" = "hypr-dark" ]; then
+          if [ -n "''${XDG_DATA_DIRS:-}" ]; then
+            export XDG_DATA_DIRS="$SCRIPT_DIR/../share:''${XDG_DATA_DIRS}"
+          else
+            export XDG_DATA_DIRS="$SCRIPT_DIR/../share:/run/current-system/sw/share:/etc/profiles/per-user/$USER/share:/nix/var/nix/profiles/default/share"
+          fi
+          export GST_PLUGIN_SYSTEM_PATH="${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-good}/lib/gstreamer-1.0"
+          exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
+        fi
+
+        # Ensure bundled and system schemas/resources are available to GSettings and GTK.
+        data_dirs=()
+        schema_dirs=()
+
+        add_schema_dir() {
+          local d="$1"
+          if [ -d "$d" ]; then
+            schema_dirs+=("$d")
+          fi
+        }
+
+        data_dirs+=("$SCRIPT_DIR/../share")
+        add_schema_dir "$SCRIPT_DIR/../share/glib-2.0/schemas"
+
+        for base in /run/current-system/sw /etc/profiles/per-user/$USER /nix/var/nix/profiles/default; do
+          if [ -d "$base/share" ]; then
+            data_dirs+=("$base/share")
+          fi
+          add_schema_dir "$base/share/glib-2.0/schemas"
+          for schema_root in "$base"/share/gsettings-schemas/*; do
+            if [ -d "$schema_root/glib-2.0/schemas" ]; then
+              data_dirs+=("$schema_root")
+              add_schema_dir "$schema_root/glib-2.0/schemas"
+            fi
+          done
+        done
+
+        joined_data_dirs=""
+        for d in "''${data_dirs[@]}"; do
+          if [ -z "$joined_data_dirs" ]; then
+            joined_data_dirs="$d"
+          else
+            joined_data_dirs="$joined_data_dirs:$d"
+          fi
+        done
+        export XDG_DATA_DIRS="$joined_data_dirs"
+
+        schema_merge_dir="/tmp/tims-control-center-schema-merge-$UID"
+        rm -rf "$schema_merge_dir"
+        mkdir -p "$schema_merge_dir"
+        for d in "''${schema_dirs[@]}"; do
+          cp -f "$d"/*.xml "$schema_merge_dir" 2>/dev/null || true
+          cp -f "$d"/*.gschema.override "$schema_merge_dir" 2>/dev/null || true
+        done
+
+        # Compatibility patch for custom control-center builds expecting this key.
+        if [ -f "$schema_merge_dir/org.gnome.desktop.session.gschema.xml" ] && ! ${pkgs.gnugrep}/bin/grep -q 'name="save-restore"' "$schema_merge_dir/org.gnome.desktop.session.gschema.xml"; then
+          ${pkgs.gnused}/bin/sed -i '/<\/schema>/i\  <key name="save-restore" type="b">\n    <default>true<\/default>\n    <summary>Restore session</summary>\n    <description>Whether to restore previous session state.<\/description>\n  <\/key>' "$schema_merge_dir/org.gnome.desktop.session.gschema.xml"
+        fi
+
+        ${pkgs.glib.dev}/bin/glib-compile-schemas "$schema_merge_dir" >/dev/null
+        export GSETTINGS_SCHEMA_DIR="$schema_merge_dir"
+        export GST_PLUGIN_SYSTEM_PATH="${pkgs.gst_all_1.gst-plugins-base}/lib/gstreamer-1.0:${pkgs.gst_all_1.gst-plugins-good}/lib/gstreamer-1.0"
+
+        exec env XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome "$SCRIPT_DIR/.gnome-control-center-wrapped" "$@"
+        EOF
+
+        chmod +x $out/bin/control-center
+
+        ln -s $out/bin/control-center $out/bin/gnome-control-center
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.service \
+          --replace "/home/tim/development/tims-control-center/install/bin/gnome-control-center" "$out/bin/gnome-control-center"
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.GlobalShortcutsProvider.service \
+          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-global-shortcuts-provider" \
+          "$out/libexec/gnome-control-center-global-shortcuts-provider"
+
+        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.SearchProvider.service \
+          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-search-provider" \
+          "$out/libexec/gnome-control-center-search-provider"
+      '';
+
+      meta.mainProgram = "control-center";
+    };
+  in {
+    packages.x86_64-linux.default = my-gcc;
+    apps.x86_64-linux.default = {
+      type = "app";
+      program = "${my-gcc}/bin/control-center";
+    };
+  };
+}

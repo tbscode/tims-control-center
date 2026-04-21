@@ -171,8 +171,8 @@ add_location_app (CcLocationPage *self,
                   gint64          last_used)
 {
   LocationAppStateData *data;
-  g_autoptr(GDesktopAppInfo) app_info = NULL;
-  g_autoptr(GDateTime) t = NULL;
+  GDesktopAppInfo *app_info;
+  GDateTime *t;
   GtkWidget *row, *w;
   GIcon *icon;
   gchar *last_used_str;

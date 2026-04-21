@@ -27,7 +27,8 @@
 G_BEGIN_DECLS
 
 #define CE_TYPE_PAGE_BLUETOOTH (ce_page_bluetooth_get_type ())
-G_DECLARE_FINAL_TYPE (CEPageBluetooth, ce_page_bluetooth, CE, PAGE_BLUETOOTH, GtkGrid);
+G_DECLARE_FINAL_TYPE (CEPageBluetooth, ce_page_bluetooth, CE, PAGE_BLUETOOTH, GtkGrid)
+
 CEPageBluetooth *ce_page_bluetooth_new (NMConnection     *connection);
 
 G_END_DECLS

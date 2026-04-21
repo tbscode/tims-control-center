@@ -25,5 +25,6 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_APPLICATIONS_PANEL (cc_applications_panel_get_type())
-G_DECLARE_FINAL_TYPE (CcApplicationsPanel, cc_applications_panel, CC, APPLICATIONS_PANEL, CcPanel);
+G_DECLARE_FINAL_TYPE (CcApplicationsPanel, cc_applications_panel, CC, APPLICATIONS_PANEL, CcPanel)
+
 G_END_DECLS

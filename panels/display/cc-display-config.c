@@ -184,13 +184,6 @@ static const double known_diagonals[] = {
   15.6
 };
 
-gboolean
-cc_display_same_scale (double a,
-                       double b)
-{
-  return G_APPROX_VALUE (a, b, 0.01);
-}
-
 static gint
 logical_monitor_sort_x_axis (gconstpointer a,
                              gconstpointer b)
@@ -328,7 +321,7 @@ cc_display_mode_is_supported_scale (CcDisplayMode *self,
     {
       double v = g_array_index (self->supported_scales, double, i);
 
-      if (cc_display_same_scale (v, scale))
+      if (G_APPROX_VALUE (v, scale, DBL_EPSILON))
         return TRUE;
     }
   return FALSE;
@@ -1173,7 +1166,7 @@ cc_display_monitor_set_scale (CcDisplayMonitor *self,
   if (!self->logical_monitor)
     return;
 
-  if (!cc_display_same_scale (self->logical_monitor->scale, scale))
+  if (!G_APPROX_VALUE (self->logical_monitor->scale, scale, DBL_EPSILON))
     {
       self->logical_monitor->scale = scale;
 
@@ -1427,7 +1420,7 @@ cc_display_logical_monitor_equal (const CcDisplayLogicalMonitor *m1,
 
   return m1->x == m2->x &&
     m1->y == m2->y &&
-    cc_display_same_scale (m1->scale, m2->scale) &&
+    G_APPROX_VALUE (m1->scale, m2->scale, DBL_EPSILON) &&
     m1->rotation == m2->rotation &&
     m1->primary == m2->primary;
 }
@@ -1595,8 +1588,8 @@ filter_out_invalid_scaled_modes (CcDisplayConfig *self)
             {
               float scale = g_array_index (mode->supported_scales, double, i);
 
-              if (!cc_display_same_scale (scale, current_scale) &&
-                  !cc_display_same_scale (scale, mode->preferred_scale) &&
+              if (!G_APPROX_VALUE (scale, current_scale, DBL_EPSILON) &&
+                  !G_APPROX_VALUE (scale, mode->preferred_scale, DBL_EPSILON) &&
                   !is_scaled_mode_allowed (self, mode, scale))
                 {
                   g_array_remove_index (mode->supported_scales, i);
@@ -1611,8 +1604,6 @@ cc_display_config_constructed (GObject *object)
 {
   CcDisplayConfig *self = CC_DISPLAY_CONFIG (object);
   GList *monitors;
-
-  G_OBJECT_CLASS (cc_display_config_parent_class)->constructed (object);
   GList *l;
   g_autoptr(GVariantIter) monitors_iter = NULL;
   g_autoptr(GVariantIter) logical_monitors_iter = NULL;
@@ -2216,7 +2207,8 @@ mode_supports_scale (CcDisplayMode *mode,
   scales = cc_display_mode_get_supported_scales (mode);
   for (i = 0; i < scales->len; i++)
     {
-      if (cc_display_same_scale (scale, g_array_index (scales, double, i)))
+      if (G_APPROX_VALUE (scale, g_array_index (scales, double, i),
+                          DBL_EPSILON))
         return TRUE;
     }
 

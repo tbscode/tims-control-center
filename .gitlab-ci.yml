@@ -41,7 +41,7 @@ stages:
 
 .Build Procedure: &build_procedure
   echo "== Building ==" &&
-  meson setup $MESON_BUILD_DIR ${BUILD_OPTS} --fatal-meson-warnings --werror -Dwarning_level=2 &&
+  meson setup $MESON_BUILD_DIR ${BUILD_OPTS} -Dprofile=development --fatal-meson-warnings --werror -Dwarning_level=2 &&
   meson compile -C $MESON_BUILD_DIR 2>&1 | tee compilation.log
 
 .Run Tests: &run_tests
@@ -57,7 +57,7 @@ stages:
     # Should probably also switch away from 'rawhide',
     # to stable fedora branch as well.
     BRANCH_NAME: 'main'
-    CONTAINER_TAG: '2026-04-17.1'
+    CONTAINER_TAG: '2025-11-15.0'
     FEDORA_VERSION: rawhide
     # Derive FDO variables from this automatically.
     # DO NOT edit, instead change the variables above
@@ -101,7 +101,6 @@ build.container.fedora@x86_64:
     FDO_DISTRIBUTION_EXEC: |-
       dnf builddep -y gnome-control-center && \
       dnf builddep -y gsettings-desktop-schemas && \
-      dnf builddep -y gtk4 && \
       dnf builddep -y gnome-settings-daemon && \
       dnf builddep -y libadwaita && \
       dnf builddep -y gnome-online-accounts && \
@@ -109,12 +108,6 @@ build.container.fedora@x86_64:
       git clone --depth 1 https://gitlab.gnome.org/GNOME/gsettings-desktop-schemas.git && \
         cd gsettings-desktop-schemas && \
         meson setup $MESON_BUILD_DIR --prefix=/usr && \
-        meson compile -C $MESON_BUILD_DIR && \
-        meson install -C $MESON_BUILD_DIR && \
-        cd .. && \
-      git clone --depth 1 https://gitlab.gnome.org/GNOME/gtk.git && \
-        cd gtk && \
-        meson setup $MESON_BUILD_DIR --prefix=/usr -Dintrospection=enabled && \
         meson compile -C $MESON_BUILD_DIR && \
         meson install -C $MESON_BUILD_DIR && \
         cd .. && \
@@ -139,13 +132,6 @@ build.container.fedora@x86_64:
       git clone --depth 1 https://gitlab.gnome.org/GNOME/blueprint-compiler.git && \
         cd blueprint-compiler && \
         meson setup $MESON_BUILD_DIR --prefix=/usr && \
-        meson compile -C $MESON_BUILD_DIR && \
-        meson install -C $MESON_BUILD_DIR && \
-        cd .. && \
-      git clone --depth 1 https://gitlab.gnome.org/GNOME/gnome-desktop.git && \
-        cd gnome-desktop && \
-        meson subprojects download && \
-        meson setup $MESON_BUILD_DIR --prefix=/usr -Ddesktop_docs=false -Dintrospection=true -Dqr=enabled && \
         meson compile -C $MESON_BUILD_DIR && \
         meson install -C $MESON_BUILD_DIR && \
         cd .. && \
@@ -184,7 +170,6 @@ build:
 conditional builds:
   extends:
     - build
-  allow_failure: true
   artifacts:
     # Only save build logs for these
     <<: *build_logs
@@ -322,6 +307,58 @@ pages:
 ##
 # Stage: Manual
 #
+# Creates a flatpak
+##
+flatpak:
+  stage: manual
+  image: quay.io/gnome_infrastructure/gnome-runtime-images:gnome-master
+  artifacts:
+    name: package
+    paths:
+    - $(pwd)/*.flatpak
+    expire_in: 7 days
+
+  variables:
+    OLD_APPID: "org.gnome.Settings"
+    APPID: "org.gnome.Settings.Devel"
+    BUNDLE: "org.gnome.Settings.Devel.flatpak"
+    MANIFEST_PATH: "build-aux/flatpak/org.gnome.Settings.Devel.json"
+    PROJECT_ID: "org.gnome.Settings"
+    PROJECT_NAME: "gnome-control-center.git"
+    RUNTIME_REPO: "https://sdk.gnome.org/gnome-nightly.flatpakrepo"
+
+  script:
+    - echo "== Flatpak packaging =="
+
+    # Make it a develoment manifest
+    - sed -i -n "p; s/$PROJECT_NAME//p" ${MANIFEST_PATH}
+    - >
+      sed -i "s,\"app-id\" : \"$PROJECT_ID\",\"app-id\" : \"<<ID>>\",g" ${MANIFEST_PATH}
+    - >
+      sed -i "s,\"url\" : \"https://gitlab.gnome.org/GNOME/$PROJECT_NAME\",\"branch\" : \"<<current>>\"\,,g" ${MANIFEST_PATH}
+    - >
+      sed -i "s,\"url\" : \"https://gitlab.gnome.org/GNOME/\",\"path\" : \".\",g" ${MANIFEST_PATH}
+
+    # Adjust the manifest to HEAD
+    - sed -i "s,<<ID>>,$APPID,g" ${MANIFEST_PATH}
+    - sed -i "s,<<current>>,origin/$CI_COMMIT_REF_NAME,g" ${MANIFEST_PATH}
+
+    # Update the icon name
+    - mv data/icons/hicolor/scalable/apps/$OLD_APPID.svg data/icons/hicolor/scalable/apps/$APPID.svg
+    - mv data/icons/hicolor/symbolic/apps/$OLD_APPID-symbolic.svg data/icons/hicolor/symbolic/apps/$APPID-symbolic.svg
+
+    - flatpak-builder --bundle-sources --disable-rofiles-fuse --repo=devel build ${MANIFEST_PATH}
+    - flatpak build-bundle devel ${BUNDLE} --runtime-repo=${RUNTIME_REPO} ${APPID}
+
+  cache:
+    paths:
+    - .flatpak-builder/cache
+  when: manual
+  except:
+    - tags
+    - gnome-3-.*
+    - main@GNOME/gnome-control-center
+
 # Runs the sanitizers [address, thread, undefined, and memory].
 .sanitizer: &sanitizer
   extends:

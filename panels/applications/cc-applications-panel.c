@@ -38,6 +38,7 @@
 #include "cc-applications-resources.h"
 #include "cc-applications-row.h"
 #include "cc-default-apps-page.h"
+#include "cc-removable-media-settings.h"
 #ifdef HAVE_SNAP
 #include "cc-snapd-client.h"
 #include "cc-snap-row.h"
@@ -56,11 +57,13 @@
 
 #define PORTAL_SNAP_PREFIX "snap."
 
-#define GNOME_SOFTWARE_DESKTOP_ID "org.gnome.Software.desktop"
-
 struct _CcApplicationsPanel
 {
   CcPanel          parent;
+
+  CcDefaultAppsPage        *default_apps_page;
+  AdwSwitchRow             *autorun_never_row;
+  CcRemovableMediaSettings *removable_media_settings;
 
   AdwNavigationPage *app_settings_page;
   GtkStack        *main_page_stack;
@@ -94,6 +97,7 @@ struct _CcApplicationsPanel
   GtkWidget       *sandbox_info_button;
 
   GDBusProxy      *perm_store;
+  GSettings       *media_handling_settings;
   GtkListBoxRow   *perm_store_pending_row;
   GSettings       *notification_settings;
   GSettings       *location_settings;
@@ -171,87 +175,29 @@ enum
 static gboolean
 gnome_software_is_installed (void)
 {
-  g_autoptr (GDesktopAppInfo) info = NULL;
-
-  info = g_desktop_app_info_new (GNOME_SOFTWARE_DESKTOP_ID);
-  return info != NULL;
+  g_autofree gchar *path = g_find_program_in_path ("gnome-software");
+  return path != NULL;
 }
 
 /* Callbacks */
 
 static void
-open_software_details_cb (GObject      *source_object,
-                          GAsyncResult *result,
-                          gpointer      user_data)
-{
-  g_autoptr (GVariant) retval = NULL;
-  g_autoptr (GError) error = NULL;
-
-  retval = g_dbus_connection_call_finish (G_DBUS_CONNECTION (source_object),
-                                          result, &error);
-  if (retval == NULL)
-    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-      g_warning ("Failed to open GNOME Software application details: %s", error->message);
-}
-
-static void
 open_software_cb (CcApplicationsPanel *self)
 {
-  GtkWindow *window;
-  GApplication *app;
-  GDBusConnection *bus;
-  GVariant *call_params;
-  GVariantBuilder params_builder;
-  g_autofree gchar *app_id = NULL;
+  const gchar *argv[] = { "gnome-software", "--details", "appid", NULL };
+  g_autofree gchar *argv_app_id = NULL;
 
-  if (!self->current_app_id)
-    {
-      g_autoptr (GAppInfo) info = G_APP_INFO (g_desktop_app_info_new (GNOME_SOFTWARE_DESKTOP_ID));
-      if (info)
-        g_app_info_launch (info, NULL, NULL, NULL);
-      return;
-    }
-
-  window = GTK_WINDOW (gtk_widget_get_root (GTK_WIDGET (self)));
-  if (!window)
-    return;
-
-  app = G_APPLICATION (gtk_window_get_application (window));
-  if (!app)
-    return;
-
-  bus = g_application_get_dbus_connection (app);
-  if (!bus)
-    return;
-
-  if (g_str_has_prefix (self->current_app_id, "org.gnome.Epiphany.WebApp_"))
-    app_id = g_strdup_printf ("%s.desktop", self->current_app_id);
+  if (self->current_app_id == NULL)
+    argv[1] = NULL;
+  else if (g_str_has_prefix (self->current_app_id, "org.gnome.Epiphany.WebApp_"))
+    /* GNOME Software only shows info on the webapp desktop file itself */
+    argv_app_id = g_strdup_printf ("%s.desktop", self->current_app_id);
   else
-    app_id = g_strdup (self->current_app_id);
+    argv_app_id = g_strdup (self->current_app_id);
 
-  g_variant_builder_init (&params_builder, G_VARIANT_TYPE ("av"));
-  g_variant_builder_add (&params_builder,
-                         "v",
-                         g_variant_new ("(ss)",
-                                        app_id,
-                                        ""));
+  argv[2] = argv_app_id;
 
-  call_params = g_variant_new ("(sava{sv})",
-                               "details",
-                               &params_builder,
-                               NULL);
-  g_dbus_connection_call (bus,
-                          "org.gnome.Software",
-                          "/org/gnome/Software",
-                          "org.gtk.Actions",
-                          "Activate",
-                          call_params,
-                          NULL,
-                          G_DBUS_CALL_FLAGS_NONE,
-                          -1,
-                          cc_panel_get_cancellable (CC_PANEL (self)),
-                          open_software_details_cb,
-                          NULL);
+  g_spawn_async (NULL, (char **)argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
 }
 
 /* --- portal permissions and utilities --- */
@@ -1904,6 +1850,7 @@ cc_applications_panel_finalize (GObject *object)
 
   g_clear_object (&self->manager);
 #endif
+  g_clear_object (&self->media_handling_settings);
   g_clear_object (&self->notification_settings);
   g_clear_object (&self->location_settings);
   g_clear_object (&self->privacy_settings);
@@ -1970,6 +1917,7 @@ cc_applications_panel_class_init (CcApplicationsPanelClass *klass)
   g_type_ensure (CC_TYPE_DEFAULT_APPS_PAGE);
   g_type_ensure (CC_TYPE_LIST_ROW);
   g_type_ensure (CC_TYPE_LIST_ROW_INFO_BUTTON);
+  g_type_ensure (CC_TYPE_REMOVABLE_MEDIA_SETTINGS);
 
   object_class->dispose = cc_applications_panel_dispose;
   object_class->finalize = cc_applications_panel_finalize;
@@ -1987,6 +1935,7 @@ cc_applications_panel_class_init (CcApplicationsPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, app_search_entry);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, app_settings_page);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, required_permissions_group);
+  gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, autorun_never_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, builtin_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, builtin_page);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, builtin_list);
@@ -1995,6 +1944,7 @@ cc_applications_panel_class_init (CcApplicationsPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, camera_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, clear_cache_button_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, storage_page_data_row);
+  gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, default_apps_page);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, handler_page);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, handler_file_group);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, handler_link_group);
@@ -2014,6 +1964,7 @@ cc_applications_panel_class_init (CcApplicationsPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, notifications_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, background_row);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, wallpaper_row);
+  gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, removable_media_settings);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, sandbox_banner);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, sandbox_info_button);
   gtk_widget_class_bind_template_child (widget_class, CcApplicationsPanel, screenshots_row);
@@ -2097,6 +2048,13 @@ cc_applications_panel_init (CcApplicationsPanel *self)
   self->location_settings = g_settings_new ("org.gnome.system.location");
   self->privacy_settings = g_settings_new ("org.gnome.desktop.privacy");
   self->search_settings = g_settings_new ("org.gnome.desktop.search-providers");
+  self->media_handling_settings = g_settings_new ("org.gnome.desktop.media-handling");
+
+  g_settings_bind (self->media_handling_settings,
+                   "autorun-never",
+                   self->autorun_never_row,
+                   "active",
+                   G_SETTINGS_BIND_INVERT_BOOLEAN);
 
 #ifdef HAVE_MALCONTENT
    /* FIXME: should become asynchronous */

@@ -1,0 +1,94 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Bad examples
+
+Button a {
+  label: _("hello...");
+}
+
+Button b {
+  label: C_("my context", "hello...");
+}
+
+Button c {
+  label: _("it was the best of times.... it was the worst of times");
+}
+
+Button d {
+  label: _("a list of things:\n\n* one\n* two\n* three");
+}
+
+Button e {
+  label: _("a list of things:\n\n  - one\n  - two\n  - three");
+}
+
+Button f {
+  label: _("So I said, \"what?\"");
+}
+
+Button g {
+  label: _("the \\\\ printer's not working");
+}
+
+Button h {
+  label: _("all the kings' men");
+}
+
+Button i {
+  label: _("the resolution is 1920x1080");
+}
+
+Button j {
+  label: _("the resolution is 1920 x 1080");
+}
+
+Button k {
+  label: _("the photo is printed at 6in x 4in");
+}
+
+Button l {
+  label: _("the photo is printed at 6\" x 4\"");
+}
+
+Button m {
+  label: _("reporting a 10x sales increase");
+}
+
+// Good examples
+
+Button n {
+  label: _("only two.. dots");
+}
+
+Button o {
+  label: _("e.g. this text");
+}
+
+Button p {
+  label: _("hello…");
+}
+
+Button q {
+  label: _("a list of things:\n\n• one\n• two\n• three");
+}
+
+Button r {
+  label: _("a list of things:\n\n  • one\n  • two\n  • three");
+}
+
+Button s {
+  label: _("So I said, “what?”");
+}
+
+Button t {
+  label: _("the printer’s not working");
+}
+
+Button u {
+  label: _("Using x as a letter is fine, for example, the movie T-Rex 2");
+}
+
+Button v {
+  label: _("the photo is printed at 6 in × 4 in");
+}

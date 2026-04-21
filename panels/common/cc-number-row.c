@@ -661,7 +661,7 @@ cc_number_row_has_value (CcNumberRow *self,
 static void
 number_row_settings_changed_cb (CcNumberRow *self)
 {
-    int value = 0;
+    int value;
     guint position = 0;
 
     switch (self->bind_type) {

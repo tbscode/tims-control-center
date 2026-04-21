@@ -1,0 +1,16 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Bad Example
+
+StackPage {}
+
+Box {
+  StackPage {}
+}
+
+// Good Example
+
+Stack {
+  StackPage {}
+}

@@ -35,7 +35,8 @@ typedef struct BoltProxySignal
 } BoltProxySignal;
 
 #define BOLT_TYPE_PROXY (bolt_proxy_get_type ())
-G_DECLARE_DERIVABLE_TYPE (BoltProxy, bolt_proxy, BOLT, PROXY, GDBusProxy);
+G_DECLARE_DERIVABLE_TYPE (BoltProxy, bolt_proxy, BOLT, PROXY, GDBusProxy)
+
 struct _BoltProxyClass
 {
   GDBusProxyClass parent;

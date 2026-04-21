@@ -1,5 +1,4 @@
 using Gtk 4.0;
-using GnomeQRGtk 4.0;
 using Adw 1;
 
 template $CcQrCodeDialog: Adw.Dialog {
@@ -17,10 +16,9 @@ template $CcQrCodeDialog: Adw.Dialog {
           orientation: vertical;
           spacing: 24;
 
-          GnomeQRGtk.Widget qr_code {
+          Picture qr_image {
             halign: center;
             alternative-text: _("QR Code");
-            size: 190;
 
             /* Set the QR code as focusable so the alternative
              * text can be read.

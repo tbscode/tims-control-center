@@ -461,7 +461,7 @@ unlock_gnome_keyring (CcDesktopSharingPage *self)
                                                  NULL, &error);
   if (!collection)
     {
-      g_debug ("Can't load secret collection: %s", error ? error->message : "No such collection");
+      g_debug ("Can't load secret collection: %s", error->message);
       return;
     }
 
@@ -736,9 +736,18 @@ connect_to_remote_desktop_rdp_server (CcDesktopSharingPage *self)
 static void
 cc_desktop_sharing_page_init (CcDesktopSharingPage *self)
 {
+  g_autoptr(GtkCssProvider) provider = NULL;
+
   gtk_widget_init_template (GTK_WIDGET (self));
 
   self->cancellable = g_cancellable_new ();
   check_desktop_sharing_available (self);
   connect_to_remote_desktop_rdp_server (self);
+
+  provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_resource (provider,
+                                       "/org/gnome/control-center/system/remote-desktop/remote-desktop.css");
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              GTK_STYLE_PROVIDER (provider),
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 }

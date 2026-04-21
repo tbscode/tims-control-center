@@ -621,7 +621,11 @@ populate_options_real (PpOptionsDialog *self)
     }
 
   self->ipp_attributes_set = FALSE;
-  g_clear_pointer (&self->ipp_attributes, g_hash_table_unref);
+  if (self->ipp_attributes)
+    {
+      g_hash_table_unref (self->ipp_attributes);
+      self->ipp_attributes = NULL;
+    }
 
   /* Translators: "General" tab contains general printer options */
   tab_add (self, C_("Printer Option Group", "General"), general_tab_grid);
@@ -886,7 +890,11 @@ pp_options_dialog_dispose (GObject *object)
       self->destination = NULL;
     }
 
-  g_clear_pointer (&self->ipp_attributes, g_hash_table_unref);
+  if (self->ipp_attributes)
+    {
+      g_hash_table_unref (self->ipp_attributes);
+      self->ipp_attributes = NULL;
+    }
 
   G_OBJECT_CLASS (pp_options_dialog_parent_class)->dispose (object);
 }
@@ -910,7 +918,7 @@ pp_options_dialog_class_init (PpOptionsDialogClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, category_selection_changed_cb);
   gtk_widget_class_bind_template_callback (widget_class, test_page_cb);
 
-  gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, GDK_NO_MODIFIER_MASK, "window.close", NULL);
+  gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, 0, "window.close", NULL);
 }
 
 void

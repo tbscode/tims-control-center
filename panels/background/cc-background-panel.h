@@ -25,5 +25,6 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_BACKGROUND_PANEL (cc_background_panel_get_type ())
-G_DECLARE_FINAL_TYPE (CcBackgroundPanel, cc_background_panel, CC, BACKGROUND_PANEL, CcPanel);
+G_DECLARE_FINAL_TYPE (CcBackgroundPanel, cc_background_panel, CC, BACKGROUND_PANEL, CcPanel)
+
 G_END_DECLS

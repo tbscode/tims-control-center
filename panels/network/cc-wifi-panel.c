@@ -29,8 +29,9 @@
 #include "shell/cc-object-storage.h"
 
 #include <glib/gi18n.h>
-#include <gnome-qr-gtk/gnome-qr-widget.h>
 #include <NetworkManager.h>
+
+#define QR_IMAGE_SIZE 180
 
 typedef enum
 {
@@ -60,7 +61,8 @@ struct _CcWifiPanel
   GtkWidget          *spinner;
   GtkStack           *stack;
   AdwDialog          *stop_hotspot_dialog;
-  GnomeQrWidget      *wifi_qr;
+  GtkPicture         *wifi_qr_image;
+  CcQrCode           *qr_code;
 
   NMClient           *client;
 
@@ -192,18 +194,27 @@ wifi_panel_update_qr_image_cb (CcWifiPanel *self)
       g_autoptr (GVariant) secrets = NULL;
       g_autoptr (GError) error = NULL;
 
+      if (!self->qr_code)
+        self->qr_code = cc_qr_code_new ();
+
       secrets = nm_remote_connection_get_secrets (NM_REMOTE_CONNECTION (hotspot),
                                                   NM_SETTING_WIRELESS_SECURITY_SETTING_NAME,
                                                   NULL, &error);
-      if (!error)
-        {
-          nm_connection_update_secrets (hotspot,
-                                        NM_SETTING_WIRELESS_SECURITY_SETTING_NAME,
-                                        secrets, &error);
+      if (!error) {
+        nm_connection_update_secrets (hotspot,
+                                      NM_SETTING_WIRELESS_SECURITY_SETTING_NAME,
+                                      secrets, &error);
 
-          str = get_qr_string_for_connection (hotspot);
+        str = get_qr_string_for_connection (hotspot);
+        if (cc_qr_code_set_text (self->qr_code, str))
+          {
+            GdkPaintable *paintable;
+            gint scale;
 
-          gnome_qr_widget_set_text (GNOME_QR_WIDGET (self->wifi_qr), str);
+            scale = gtk_widget_get_scale_factor (GTK_WIDGET (self->wifi_qr_image));
+            paintable = cc_qr_code_get_paintable (self->qr_code, QR_IMAGE_SIZE * scale);
+            gtk_picture_set_paintable (self->wifi_qr_image, paintable);
+          }
         }
       else
         {
@@ -846,7 +857,7 @@ cc_wifi_panel_class_init (CcWifiPanelClass *klass)
   gtk_widget_class_bind_template_child (widget_class, CcWifiPanel, spinner);
   gtk_widget_class_bind_template_child (widget_class, CcWifiPanel, stack);
   gtk_widget_class_bind_template_child (widget_class, CcWifiPanel, stop_hotspot_dialog);
-  gtk_widget_class_bind_template_child (widget_class, CcWifiPanel, wifi_qr);
+  gtk_widget_class_bind_template_child (widget_class, CcWifiPanel, wifi_qr_image);
 
   gtk_widget_class_bind_template_callback (widget_class, rfkill_switch_notify_activate_cb);
   gtk_widget_class_bind_template_callback (widget_class, on_stack_visible_child_changed_cb);
@@ -867,6 +878,7 @@ cc_wifi_panel_class_init (CcWifiPanelClass *klass)
 static void
 cc_wifi_panel_init (CcWifiPanel *self)
 {
+  g_autoptr(GtkCssProvider) provider = NULL;
   GtkLabel *hotspot_off_label;
 
   g_resources_register (cc_network_get_resource ());
@@ -918,6 +930,13 @@ cc_wifi_panel_init (CcWifiPanel *self)
 
   /* Handle comment-line arguments after loading devices */
   handle_argv (self);
+
+  /* use custom CSS */
+  provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_resource (provider, "/org/gnome/control-center/network/wifi-panel.css");
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              GTK_STYLE_PROVIDER (provider),
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
   /* Customize some properties that would lose styling if done in UI */
   hotspot_off_label = GTK_LABEL (gtk_button_get_child (self->hotspot_off_button));

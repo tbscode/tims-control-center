@@ -1,0 +1,69 @@
+from ..errors import CompileWarning
+from ..language import ExtAccessibility, Property
+from .utils import LinterRule
+
+
+class RequireA11yLabel(LinterRule):
+    id = "missing_descriptive_text"
+    severity = "suggestion"
+    category = "a11y"
+
+    def check(self, type, child, stack):
+        # rule suggestion/require-a11y-label
+        properties = child.content.children[Property]
+        if type == "Gtk.Button":
+            label = None
+            tooltip_text = None
+            accessibility_label = False
+
+            # FIXME: Check what ATs actually do
+
+            for property in properties:
+                if property.name == "label":
+                    label = property.value
+                elif property.name == "tooltip-text":
+                    tooltip_text = property.value
+
+            accessibility_child = child.content.children[ExtAccessibility]
+            if len(accessibility_child) > 0:
+                accessibility_properties = child.content.children[ExtAccessibility][
+                    0
+                ].properties
+                for accessibility_property in accessibility_properties:
+                    if accessibility_property.name in ("label", "labelled-by"):
+                        accessibility_label = True
+
+            if label is None and tooltip_text is None and accessibility_label is False:
+                self.problems.append(
+                    CompileWarning(
+                        f"{type} is missing an accessibility label",
+                        child.signature_range,
+                        id=self.id,
+                    )
+                )
+
+        # rule suggestion/require-a11y-label
+        elif type == "Gtk.Image" or type == "Gtk.Picture":
+            for property in properties:
+                if (
+                    property.name == "accessible-role"
+                    and property.value.range.text == "presentation"
+                ):
+                    return
+
+            accessibility_child = child.content.children[ExtAccessibility]
+            if len(accessibility_child) > 0:
+                accessibility_properties = child.content.children[ExtAccessibility][
+                    0
+                ].properties
+                for accessibility_property in accessibility_properties:
+                    if accessibility_property.name in ("label", "labelled-by"):
+                        return
+
+            self.problems.append(
+                CompileWarning(
+                    f"{type} is missing an accessibility label",
+                    child.signature_range,
+                    id=self.id,
+                )
+            )

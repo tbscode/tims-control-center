@@ -104,8 +104,6 @@ template $CcFingerprintDialog: Adw.Dialog {
               Label {
                 /* Translators: This is the empty state page label which states that there are no devices ready. */
                 label: _("No Fingerprint device");
-                wrap: true;
-                justify: center;
 
                 styles [
                   "title-1",
@@ -252,14 +250,9 @@ template $CcFingerprintDialog: Adw.Dialog {
 Popover add_print_popover {
   position: bottom;
 
-  ScrolledWindow {
-    propagate-natural-width: true;
-    propagate-natural-height: true;
-
-    Box add_print_popover_box {
-      can-focus: false;
-      spacing: 6;
-      orientation: vertical;
-    }
+  Box add_print_popover_box {
+    can-focus: false;
+    spacing: 6;
+    orientation: vertical;
   }
 }

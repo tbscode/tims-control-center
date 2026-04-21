@@ -180,7 +180,7 @@ add_camera_app (CcCameraPage *self,
 {
   g_autofree gchar *desktop_id = NULL;
   CameraAppStateData *data;
-  g_autoptr(GDesktopAppInfo) app_info = NULL;
+  GDesktopAppInfo *app_info;
   GtkWidget *row, *w;
   GIcon *icon;
 

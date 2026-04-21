@@ -75,18 +75,20 @@ template $CcPrintersPanel: $CcPanel {
             StackPage {
               name: "printers-list";
 
-              child: Adw.PreferencesPage {
-                Adw.PreferencesGroup {
+              child: ScrolledWindow scrolled_window {
+                hscrollbar-policy: never;
+
+                Adw.Clamp {
                   ListBox content {
                     selection-mode: none;
+                    margin-top: 24;
+                    margin-bottom: 24;
+                    margin-start: 12;
+                    margin-end: 12;
 
                     styles [
                       "boxed-list-separate",
                     ]
-
-                    accessibility {
-                      label: _("Printers");
-                    }
 
                     [placeholder]
                     Adw.StatusPage {

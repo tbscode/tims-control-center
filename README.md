@@ -1,27 +1,16 @@
-[![Build Status](https://gitlab.gnome.org/GNOME/gnome-control-center/badges/main/pipeline.svg)](https://gitlab.gnome.org/GNOME/gnome-control-center/pipelines)
-[![Coverage report](https://gitlab.gnome.org/GNOME/gnome-control-center/badges/main/coverage.svg)](https://gnome.pages.gitlab.gnome.org/gnome-control-center/)
-[![License](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://gitlab.gnome.org/GNOME/gnome-control-center/blob/main/COPYING)
-
-GNOME Settings
+TIM I3 SETTINGS ( fork of gnome settings )
 ====================
 
-GNOME Settings is GNOME's main interface for configuration of various aspects of your desktop.
+This is a fork that performs small modification to get the control center to work under i3.
+Notably:
 
-If you are looking for usage tips and instructions, you can find it at the [User Documentation](https://help.gnome.org/users/gnome-help/stable/prefs.html) (translated in various languages).
+- remove gnome / unity usage restriction
+- add i3 integration / startup script behavior for existing-window focus and faster startup waits
+- add Nix flake packaging for `control-center` command
+- ship prebuilt binaries in `prebuilt/` for flake packaging (x86_64-linux)
+- remove the `Multitasking`, `Wellbeing`, `Accessibility`, and `Online Accounts` sections from the panel list
 
-## Reporting Issues
+Repository history note:
 
-Before reporting any bugs or opening feature requests, [read the communication guidelines](https://gitlab.gnome.org/GNOME/gnome-control-center/blob/main/docs/CODE_OF_CONDUCT.md#communication-guidelines).
-
-Report issues to the [GNOME issue tracking system](https://gitlab.gnome.org/GNOME/gnome-control-center/issues).
-
-## Feature Requests
-
-For feature requests or conceptual changes, please start a topic on [GNOME Discourse](https://discourse.gnome.org/tags/settings).
-
-## Contributing
-
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for details on the contribution process, and [`docs/CODING_STYLE.md`](docs/CODING_STYLE.md)
-for the coding style guidelines.
-
-See [docs/](docs/index.md) for our developer documentation.
+- `main` was intentionally squashed to a single commit to reduce clone/download time for future checkouts.
+- the previous full commit history is preserved on `old-commit-history`.

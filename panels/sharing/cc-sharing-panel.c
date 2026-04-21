@@ -24,6 +24,7 @@
 #include "cc-list-row.h"
 #include "shell/cc-application.h"
 #include "shell/cc-log.h"
+#include "cc-list-row-info-button.h"
 #include "cc-hostname.h"
 
 #include "cc-sharing-resources.h"
@@ -41,7 +42,6 @@
 
 static GtkWidget *cc_sharing_panel_new_media_sharing_row (const char     *uri_or_path,
                                                           CcSharingPanel *self);
-static void cc_sharing_panel_save_media_sharing_folders (CcSharingPanel *self);
 
 #define FILE_SHARING_SCHEMA_ID "org.gnome.desktop.file-sharing"
 
@@ -50,14 +50,18 @@ struct _CcSharingPanel
   CcPanel parent_instance;
 
   GtkWidget *hostname_entry;
+  GtkWidget *main_list_box;
+  AdwDialog *media_sharing_dialog;
   AdwPreferencesPage *media_sharing_page;
   AdwActionRow *media_sharing_enable_row;
   GtkWidget *media_sharing_row;
   GtkWidget *media_sharing_switch;
+  AdwDialog *personal_file_sharing_dialog;
   AdwToastOverlay *personal_file_sharing_toast_overlay;
   AdwActionRow *personal_file_sharing_enable_row;
+  CcListRowInfoButton *personal_file_sharing_info_button;
   AdwActionRow *personal_file_sharing_address_row;
-  AdwPreferencesPage *personal_file_sharing_prefs_page;
+  AdwPreferencesPage *personal_file_sharing_page;
   GtkWidget *personal_file_sharing_password_entry_row;
   GtkWidget *personal_file_sharing_require_password_switch;
   GtkWidget *personal_file_sharing_row;
@@ -73,6 +77,20 @@ CC_PANEL_REGISTER (CcSharingPanel, cc_sharing_panel)
 static void
 cc_sharing_panel_dispose (GObject *object)
 {
+  CcSharingPanel *self = CC_SHARING_PANEL (object);
+
+  if (self->media_sharing_dialog)
+    {
+      adw_dialog_force_close (self->media_sharing_dialog);
+      self->media_sharing_dialog = NULL;
+    }
+
+  if (self->personal_file_sharing_dialog)
+    {
+      adw_dialog_force_close (self->personal_file_sharing_dialog);
+      self->personal_file_sharing_dialog = NULL;
+    }
+
   G_OBJECT_CLASS (cc_sharing_panel_parent_class)->dispose (object);
 }
 
@@ -121,13 +139,17 @@ cc_sharing_panel_class_init (CcSharingPanelClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/control-center/sharing/cc-sharing-panel.ui");
 
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, hostname_entry);
+  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, main_list_box);
+  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, media_sharing_dialog);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, media_sharing_page);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, media_sharing_enable_row);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, media_sharing_row);
+  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_dialog);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_toast_overlay);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_enable_row);
+  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_info_button);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_address_row);
-  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_prefs_page);
+  gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_page);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_password_entry_row);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_require_password_switch);
   gtk_widget_class_bind_template_child (widget_class, CcSharingPanel, personal_file_sharing_row);
@@ -236,8 +258,6 @@ on_folder_selected_cb (GObject      *source_object,
       gtk_list_box_insert (GTK_LIST_BOX (self->shared_folders_listbox),
                            row,
                            n_rows - 1);
-
-      cc_sharing_panel_save_media_sharing_folders (self);
     }
 }
 
@@ -290,12 +310,10 @@ cc_sharing_panel_remove_folder (CcSharingPanel *self,
 
   row = g_object_get_data (G_OBJECT (button), "row");
   gtk_list_box_remove (GTK_LIST_BOX (self->shared_folders_listbox), row);
-
-  cc_sharing_panel_save_media_sharing_folders (self);
 }
 
 static void
-cc_sharing_panel_save_media_sharing_folders (CcSharingPanel *self)
+cc_sharing_panel_media_sharing_dialog_close_attempt (CcSharingPanel *self)
 {
   g_autoptr(GPtrArray) folders = NULL;
   GtkWidget *child;
@@ -317,6 +335,9 @@ cc_sharing_panel_save_media_sharing_folders (CcSharingPanel *self)
   g_ptr_array_add (folders, NULL);
 
   cc_media_sharing_set_preferences ((gchar **) folders->pdata);
+
+  adw_dialog_set_can_close (self->media_sharing_dialog, TRUE);
+  adw_dialog_close (self->media_sharing_dialog);
 }
 
 #define ICON_NAME_FOLDER                "folder-symbolic"
@@ -453,11 +474,15 @@ cc_sharing_panel_check_media_sharing_available (void)
 }
 
 static void
-cc_sharing_panel_setup_media_sharing_page (CcSharingPanel *self)
+cc_sharing_panel_setup_media_sharing_dialog (CcSharingPanel *self)
 {
   g_auto(GStrv) folders = NULL;
   GStrv list;
   GtkWidget *row, *networks, *w;
+
+  g_signal_connect_object (self->media_sharing_dialog, "close-attempt",
+                           G_CALLBACK (cc_sharing_panel_media_sharing_dialog_close_attempt),
+                           self, G_CONNECT_SWAPPED);
 
   cc_media_sharing_get_preferences (&folders);
 
@@ -497,7 +522,7 @@ cc_sharing_panel_setup_label_with_hostname (CcSharingPanel *self,
 
   hostname = cc_hostname_get_static_hostname (cc_hostname_get_default ());
 
-  if (page == self->personal_file_sharing_prefs_page)
+  if (page == self->personal_file_sharing_page)
     {
       g_autofree gchar *dav_address = g_strdup_printf ("dav://%s", hostname);
       adw_action_row_set_subtitle (self->personal_file_sharing_address_row, dav_address);
@@ -537,7 +562,7 @@ file_sharing_password_changed (CcSharingPanel *self)
 }
 
 static void
-cc_sharing_panel_setup_personal_file_sharing_page (CcSharingPanel *self)
+cc_sharing_panel_setup_personal_file_sharing_dialog (CcSharingPanel *self)
 {
   GSettings *settings;
   GtkWidget *networks, *w;
@@ -566,7 +591,7 @@ cc_sharing_panel_setup_personal_file_sharing_page (CcSharingPanel *self)
                             self);
 
   networks = cc_sharing_networks_new (self->sharing_proxy, "gnome-user-share-webdav");
-  adw_preferences_page_add (ADW_PREFERENCES_PAGE (self->personal_file_sharing_prefs_page),
+  adw_preferences_page_add (ADW_PREFERENCES_PAGE (self->personal_file_sharing_page),
                             ADW_PREFERENCES_GROUP (networks));
 
   w = create_switch_with_bindings (GTK_SWITCH (g_object_get_data (G_OBJECT (networks), "switch")));
@@ -580,7 +605,7 @@ cc_sharing_panel_setup_personal_file_sharing_page (CcSharingPanel *self)
   personal_file_sharing_info_text = g_strdup_printf (_("File sharing allows sharing the Public folder with other devices "
                                                        "on the current network. This device will be visible as “%s”."),
                                                      hostname);
-  adw_preferences_page_set_description (self->personal_file_sharing_prefs_page, personal_file_sharing_info_text);
+  cc_list_row_info_button_set_text (self->personal_file_sharing_info_button, personal_file_sharing_info_text);
 
   cc_sharing_panel_bind_networks_to_label (self,
                                            networks,
@@ -625,17 +650,17 @@ sharing_proxy_ready (GObject      *source,
 
   /* media sharing */
   if (cc_sharing_panel_check_media_sharing_available ())
-    cc_sharing_panel_setup_media_sharing_page (self);
+    cc_sharing_panel_setup_media_sharing_dialog (self);
   else
     gtk_widget_set_visible (self->media_sharing_row, FALSE);
 
   /* personal file sharing */
   if (cc_sharing_panel_check_schema_available (FILE_SHARING_SCHEMA_ID))
-    cc_sharing_panel_setup_personal_file_sharing_page (self);
+    cc_sharing_panel_setup_personal_file_sharing_dialog (self);
   else
     gtk_widget_set_visible (self->personal_file_sharing_row, FALSE);
 
-  cc_sharing_panel_setup_label_with_hostname (self, self->personal_file_sharing_prefs_page);
+  cc_sharing_panel_setup_label_with_hostname (self, self->personal_file_sharing_page);
 }
 
 static void

@@ -26,7 +26,8 @@
 G_BEGIN_DECLS
 
 #define PP_TYPE_JOBS_DIALOG (pp_jobs_dialog_get_type ())
-G_DECLARE_FINAL_TYPE (PpJobsDialog, pp_jobs_dialog, PP, JOBS_DIALOG, AdwDialog);
+G_DECLARE_FINAL_TYPE (PpJobsDialog, pp_jobs_dialog, PP, JOBS_DIALOG, AdwDialog)
+
 PpJobsDialog *pp_jobs_dialog_new               (const gchar  *printer_name);
 void          pp_jobs_dialog_update            (PpJobsDialog *dialog);
 void          pp_jobs_dialog_authenticate_jobs (PpJobsDialog *dialog);

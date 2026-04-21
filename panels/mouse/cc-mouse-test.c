@@ -108,6 +108,18 @@ on_mouse_test_show_cb (CcMouseTest *self)
 }
 
 static void
+setup_dialog (CcMouseTest *self)
+{
+    g_autoptr(GtkCssProvider) provider = NULL;
+
+    provider = gtk_css_provider_new ();
+    gtk_css_provider_load_from_resource (provider, "/org/gnome/control-center/mouse/mouse-test.css");
+    gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                                GTK_STYLE_PROVIDER (provider),
+                                                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+}
+
+static void
 cc_mouse_test_finalize (GObject *object)
 {
     CcMouseTest *self = CC_MOUSE_TEST (object);
@@ -125,7 +137,7 @@ cc_mouse_test_class_init (CcMouseTestClass *klass)
 
     object_class->finalize = cc_mouse_test_finalize;
 
-    gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, GDK_NO_MODIFIER_MASK, "window.close", NULL);
+    gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, 0, "window.close", NULL);
 
     gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/control-center/mouse/cc-mouse-test.ui");
 
@@ -152,6 +164,8 @@ cc_mouse_test_init (CcMouseTest *self)
 
     mouse_settings = g_settings_new ("org.gnome.desktop.peripherals.mouse");
     self->double_click_delay = g_settings_get_int (mouse_settings, "double-click");
+
+    setup_dialog (self);
 }
 
 GtkWidget *

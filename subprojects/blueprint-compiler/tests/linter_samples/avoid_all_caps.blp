@@ -1,0 +1,30 @@
+using Gtk 4.0;
+using Adw 1;
+
+// Bad Examples
+Label {
+  label: _("FOO");
+}
+
+// Good Examples
+Label {
+  label: _("foo");
+}
+
+Label {
+  label: _("Foo");
+}
+
+Label {
+  label: _("F");
+}
+
+Label {
+  label: _("1234567890");
+}
+
+Image {
+  accessibility {
+    label: _("FOO");
+  }
+}

@@ -24,5 +24,6 @@
 G_BEGIN_DECLS
 
 #define CC_TYPE_POWER_PANEL (cc_power_panel_get_type ())
-G_DECLARE_FINAL_TYPE (CcPowerPanel, cc_power_panel, CC, POWER_PANEL, CcPanel);
+G_DECLARE_FINAL_TYPE (CcPowerPanel, cc_power_panel, CC, POWER_PANEL, CcPanel)
+
 G_END_DECLS

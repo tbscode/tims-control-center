@@ -23,7 +23,8 @@
 #include <cups/cups.h>
 
 #define PP_PRINTER_ENTRY_TYPE (pp_printer_entry_get_type ())
-G_DECLARE_FINAL_TYPE (PpPrinterEntry, pp_printer_entry, PP, PRINTER_ENTRY, GtkListBoxRow);
+G_DECLARE_FINAL_TYPE (PpPrinterEntry, pp_printer_entry, PP, PRINTER_ENTRY, GtkListBoxRow)
+
 PpPrinterEntry *pp_printer_entry_new  (cups_dest_t printer,
                                        gboolean    is_authorized);
 

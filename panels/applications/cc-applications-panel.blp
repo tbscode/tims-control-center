@@ -51,10 +51,6 @@ template $CcApplicationsPanel: $CcPanel {
                 styles [
                   "boxed-list",
                 ]
-
-                accessibility {
-                  label: _("Apps");
-                }
               }
             }
           };
@@ -107,7 +103,31 @@ template $CcApplicationsPanel: $CcPanel {
   }
 
   [subpage]
-  $CcDefaultAppsPage default_apps_page {}
+  Adw.NavigationPage {
+    title: _("Default Apps");
+    tag: "default-apps";
+
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {}
+
+      content: Adw.PreferencesPage {
+        $CcDefaultAppsPage default_apps_page {}
+
+        Adw.PreferencesGroup {
+          title: _("Removable Media");
+
+          Adw.SwitchRow autorun_never_row {
+            title: _("Med_ia Autostart");
+            subtitle: _("Start apps or prompt when media is connected");
+            use-underline: true;
+          }
+        }
+
+        $CcRemovableMediaSettings removable_media_settings {}
+      };
+    };
+  }
 
   [subpage]
   Adw.NavigationPage app_settings_page {
@@ -358,10 +378,6 @@ template $CcApplicationsPanel: $CcPanel {
             styles [
               "boxed-list",
             ]
-
-            accessibility {
-              label: _("Required Permissions");
-            }
           }
         }
       };

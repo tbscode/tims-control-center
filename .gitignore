@@ -5,3 +5,6 @@ _build/
 !/subprojects/*.wrap
 .flatpak-builder/
 .cache/clangd/
+install/
+result
+result-*
