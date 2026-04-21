@@ -222,6 +222,7 @@ static void
 setup_model (CcWindow *self)
 {
   static const gchar * const hidden_panels[] = {
+    "display",
     "power",
     "applications",
     "search",
