@@ -1,6 +1,6 @@
-prefix=/home/tim/development/tims-control-center/install
-datarootdir=/home/tim/development/tims-control-center/install/share
-datadir=/home/tim/development/tims-control-center/install/share
+prefix=/tmp/tims-cc-install
+datarootdir=/tmp/tims-cc-install/share
+datadir=/tmp/tims-cc-install/share
 pkgdatadir=${datadir}/gnome-control-center
 keysdir=${pkgdatadir}/keybindings
 

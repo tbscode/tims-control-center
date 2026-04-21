@@ -22,9 +22,14 @@ common_sources += gnome.mkenums_simple(
   sources: ['cc-background-item.h', 'cc-background-paintable.h']
 )
 
-gdesktop_enums_header = files(
-  gsettings_desktop_dep.get_variable(pkgconfig: 'prefix') + '/include/gsettings-desktop-schemas/gdesktop-enums.h'
+gdesktop_headers_dir = gsettings_desktop_dep.get_variable(
+  internal: 'headers_dir',
+  default_value: run_command(
+    'pkg-config', '--variable=prefix', 'gsettings-desktop-schemas', check: true
+  ).stdout().strip() + '/include/gsettings-desktop-schemas'
 )
+
+gdesktop_enums_header = files(join_paths(gdesktop_headers_dir, 'gdesktop-enums.h'))
 
 common_sources += gnome.mkenums_simple(
   'gdesktop-enums-types',

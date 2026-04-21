@@ -11,7 +11,7 @@
     # Package prebuilt binaries and patch ELF dependencies.
     my-gcc = pkgs.stdenv.mkDerivation {
       pname = "gnome-control-center-prebuilt";
-      version = "49.5-custom";
+      version = "51.alpha-custom";
 
       src = ./prebuilt;
 
@@ -283,16 +283,22 @@
 
         ln -s $out/bin/control-center $out/bin/gnome-control-center
 
-        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.service \
-          --replace "/home/tim/development/tims-control-center/install/bin/gnome-control-center" "$out/bin/gnome-control-center"
+        # Normalize absolute paths baked into service/pkg-config files during meson install.
+        ${pkgs.gnused}/bin/sed -i "s|/tmp/tims-cc-install|$out|g" \
+          $out/share/dbus-1/services/org.gnome.Settings.service \
+          $out/share/dbus-1/services/org.gnome.Settings.GlobalShortcutsProvider.service \
+          $out/share/dbus-1/services/org.gnome.Settings.SearchProvider.service \
+          $out/share/pkgconfig/gnome-keybindings.pc
 
-        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.GlobalShortcutsProvider.service \
-          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-global-shortcuts-provider" \
-          "$out/libexec/gnome-control-center-global-shortcuts-provider"
+        if [ -f $out/share/pkgconfig/gsettings-desktop-schemas.pc ]; then
+          ${pkgs.gnused}/bin/sed -i "s|/tmp/tims-cc-install|$out|g" \
+            $out/share/pkgconfig/gsettings-desktop-schemas.pc
+        fi
 
-        substituteInPlace $out/share/dbus-1/services/org.gnome.Settings.SearchProvider.service \
-          --replace "/home/tim/development/tims-control-center/install/libexec/gnome-control-center-search-provider" \
-          "$out/libexec/gnome-control-center-search-provider"
+        ${pkgs.gnused}/bin/sed -i "s|/home/tim/development/tims-control-center/install|$out|g" \
+          $out/share/dbus-1/services/org.gnome.Settings.service \
+          $out/share/dbus-1/services/org.gnome.Settings.GlobalShortcutsProvider.service \
+          $out/share/dbus-1/services/org.gnome.Settings.SearchProvider.service
       '';
 
       meta.mainProgram = "control-center";

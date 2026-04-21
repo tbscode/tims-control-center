@@ -48,6 +48,9 @@ pkg = configure_file(configuration: conf,
                      output: 'gsettings-desktop-schemas.pc')
 gsettings_desktop_schemas_dep = declare_dependency(
     include_directories: include_directories('headers'),
+    variables: {
+      'headers_dir': join_paths(meson.current_source_dir(), 'headers'),
+    },
 )
 meson.override_dependency(
     'gsettings-desktop-schemas',
