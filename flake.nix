@@ -60,6 +60,14 @@
       installPhase = ''
         mkdir -p $out
         cp -r . $out/
+
+        # Provide missing wellbeing CSS resources expected by style-dark.css/style-hc.css
+        # through a GResource overlay path at runtime.
+        mkdir -p $out/share/gnome-control-center-overlays/wellbeing
+        cp ${./panels/wellbeing/wellbeing-dark.css} \
+          $out/share/gnome-control-center-overlays/wellbeing/wellbeing-dark.css
+        cp ${./panels/wellbeing/wellbeing-hc.css} \
+          $out/share/gnome-control-center-overlays/wellbeing/wellbeing-hc.css
         
         # Backup the original binary
         mv $out/bin/gnome-control-center $out/bin/.gnome-control-center-wrapped
@@ -171,8 +179,13 @@
         # In non-GNOME sessions, force libadwaita to read GNOME settings
         # directly instead of portal color-scheme hints.
         export ADW_DISABLE_PORTAL=1
-        if [ "$FORCE_DARK" -eq 1 ] || ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
-          export GTK_THEME=Adwaita:dark
+        export G_RESOURCE_OVERLAYS="/org/gnome/control-center=$SCRIPT_DIR/../share/gnome-control-center-overlays"
+        # Avoid forcing GTK_THEME for libadwaita apps; it can cause off-looking
+        # rendering compared with native color-scheme handling.
+        if [ "$CC_MODE" != "hypr-minimal" ] && [ "$CC_MODE" != "hypr-dark" ]; then
+          if [ "$FORCE_DARK" -eq 1 ] || ${pkgs.glib.bin}/bin/gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "prefer-dark"; then
+            export GTK_THEME=Adwaita:dark
+          fi
         fi
 
         # Keep DBus/systemd user activation in sync with the launch environment
