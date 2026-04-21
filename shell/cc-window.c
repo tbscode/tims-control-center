@@ -221,6 +221,14 @@ on_row_changed_cb (CcWindow     *self,
 static void
 setup_model (CcWindow *self)
 {
+  static const gchar * const hidden_panels[] = {
+    "power",
+    "applications",
+    "search",
+    "sharing",
+    "color",
+    NULL,
+  };
   GtkTreeModel *model;
   GtkTreeIter iter;
   gboolean valid;
@@ -255,6 +263,9 @@ setup_model (CcWindow *self)
                           COL_KEYWORDS, &keywords,
                           COL_VISIBILITY, &visibility,
                           -1);
+
+      if (g_strv_contains ((const gchar * const *) hidden_panels, id))
+        visibility = CC_PANEL_HIDDEN;
 
       if (G_IS_THEMED_ICON (icon))
         icon_name = g_themed_icon_get_names (G_THEMED_ICON (icon))[0];
