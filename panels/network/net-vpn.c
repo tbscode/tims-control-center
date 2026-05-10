@@ -46,6 +46,40 @@ struct _NetVpn
 
 G_DEFINE_TYPE (NetVpn, net_vpn, ADW_TYPE_ACTION_ROW)
 
+static void nm_device_refresh_vpn_ui (NetVpn *self);
+
+static void
+connection_activate_cb (GObject      *source,
+                        GAsyncResult *result,
+                        gpointer      user_data)
+{
+        NetVpn *self = NET_VPN (user_data);
+        g_autoptr(GError) error = NULL;
+
+        if (!nm_client_activate_connection_finish (NM_CLIENT (source), result, &error))
+                g_warning ("Failed to activate VPN connection '%s': %s",
+                           nm_connection_get_id (self->connection),
+                           error->message);
+
+        nm_device_refresh_vpn_ui (self);
+}
+
+static void
+connection_deactivate_cb (GObject      *source,
+                          GAsyncResult *result,
+                          gpointer      user_data)
+{
+        NetVpn *self = NET_VPN (user_data);
+        g_autoptr(GError) error = NULL;
+
+        if (!nm_client_deactivate_connection_finish (NM_CLIENT (source), result, &error))
+                g_warning ("Failed to deactivate VPN connection '%s': %s",
+                           nm_connection_get_id (self->connection),
+                           error->message);
+
+        nm_device_refresh_vpn_ui (self);
+}
+
 static void
 nm_device_refresh_vpn_ui (NetVpn *self)
 {
@@ -99,9 +133,14 @@ nm_device_refresh_vpn_ui (NetVpn *self)
                                         break;
                                 }
                                 self->active_connection = g_object_ref (a);
-                                g_signal_connect_object (a, "notify::vpn-state",
-                                                         G_CALLBACK (nm_device_refresh_vpn_ui),
-                                                         self, G_CONNECT_SWAPPED);
+                                if (NM_IS_VPN_CONNECTION (a))
+                                        g_signal_connect_object (a, "notify::vpn-state",
+                                                                 G_CALLBACK (nm_device_refresh_vpn_ui),
+                                                                 self, G_CONNECT_SWAPPED);
+                                else
+                                        g_signal_connect_object (a, "notify::state",
+                                                                 G_CALLBACK (nm_device_refresh_vpn_ui),
+                                                                 self, G_CONNECT_SWAPPED);
                                 break;
                         }
                 }
@@ -135,7 +174,9 @@ device_off_toggled (NetVpn *self)
         if (active) {
                 nm_client_activate_connection_async (self->client,
                                                      self->connection, NULL, NULL,
-                                                     NULL, NULL, NULL);
+                                                     NULL,
+                                                     connection_activate_cb,
+                                                     self);
         } else {
                 const gchar *uuid;
 
@@ -144,7 +185,11 @@ device_off_toggled (NetVpn *self)
                 for (i = 0; acs && i < acs->len; i++) {
                         a = (NMActiveConnection*)acs->pdata[i];
                         if (strcmp (nm_active_connection_get_uuid (a), uuid) == 0) {
-                                nm_client_deactivate_connection_async (self->client, a, NULL, NULL, NULL);
+                                nm_client_deactivate_connection_async (self->client,
+                                                                       a,
+                                                                       NULL,
+                                                                       connection_deactivate_cb,
+                                                                       self);
                                 break;
                         }
                 }
